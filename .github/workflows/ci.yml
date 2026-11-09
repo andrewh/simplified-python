@@ -12,8 +12,8 @@ jobs:
   subset:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Install Python and dependencies
         run: uv sync --locked
       - name: Validate registry
