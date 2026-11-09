@@ -1,0 +1,76 @@
+# Append-only ledger of every rule identifier ever issued.
+#
+# Rule identifiers are public API: reviewers cite them and tools emit them.
+#
+# - When you add a rule, append its identifier to `ids`. Never reorder or delete entries.
+# - When you remove a rule, keep its identifier in `ids` and add a [[retired]] entry.
+#   A retired identifier is never assigned to another rule.
+#
+# Validation fails when a ledger identifier matches neither exactly one rule nor one
+# retired entry, and when a rule or retired entry is missing from the ledger.
+
+ids = [
+    "SP101",
+    "SP102",
+    "SP103",
+    "SP104",
+    "SP105",
+    "SP106",
+    "SP107",
+    "SP108",
+    "SP109",
+    "SP110",
+    "SP111",
+    "SP112",
+    "SP113",
+    "SP114",
+    "SP115",
+    "SP116",
+    "SP117",
+    "SP118",
+    "SP201",
+    "SP202",
+    "SP203",
+    "SP204",
+    "SP205",
+    "SP206",
+    "SP207",
+    "SP208",
+    "SP301",
+    "SP302",
+    "SP303",
+    "SP304",
+    "SP305",
+    "SP306",
+    "SP401",
+    "SP402",
+    "SP403",
+    "SP404",
+    "SP405",
+    "SP406",
+    "SP407",
+    "SP408",
+    "SP501",
+    "SP502",
+    "SP503",
+    "SP504",
+    "SP601",
+    "SP602",
+    "SP603",
+    "SP701",
+    "SP702",
+    "SP703",
+    "SP704",
+    "SP705",
+    "SP801",
+    "SP802",
+    "SP901",
+    "SP902",
+    "SP903",
+    "SP904",
+]
+
+# [[retired]]
+# id = "SP000"
+# ruleset_version = 2
+# reason = "Why the rule was removed."

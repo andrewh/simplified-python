@@ -1,0 +1,144 @@
+# Control flow: identifiers SP3xx.
+
+[[rule]]
+id = "SP301"
+slug = "if-statement"
+category = "control-flow"
+construct = "The `if` / `elif` / `else` statement."
+anchor = { nodes = ["If"] }
+status = "allowed"
+rationale = "Branches are visible and read top to bottom."
+compliant = [
+    '''
+if size > LIMIT:
+    reject()
+elif size == 0:
+    skip()
+else:
+    accept()
+''',
+]
+
+[[rule]]
+id = "SP302"
+slug = "loops"
+category = "control-flow"
+construct = "The `for` and `while` loops."
+anchor = { nodes = ["For", "While"] }
+status = "allowed"
+rationale = "Loops show what they repeat and when they stop. The `else` clause of a loop is governed by SP304."
+compliant = [
+    '''
+for item in items:
+    process(item)
+
+while queue:
+    process(queue.pop())
+''',
+]
+
+[[rule]]
+id = "SP303"
+slug = "break-and-continue"
+category = "control-flow"
+construct = "The `break` and `continue` statements."
+anchor = { nodes = ["Break", "Continue"] }
+status = "allowed"
+rationale = "`break` and `continue` act on the innermost loop, which is visible around them."
+compliant = [
+    '''
+for line in lines:
+    if not line:
+        continue
+    if line == "END":
+        break
+    handle(line)
+''',
+]
+
+[[rule]]
+id = "SP304"
+slug = "no-loop-else"
+category = "control-flow"
+construct = "An `else` clause on a `for` or `while` loop."
+anchor = { nodes = ["For", "While"], attribute = "orelse" }
+status = "banned"
+rationale = """\
+The `else` of a loop runs when the loop ends without `break`. Many readers expect \
+the opposite, or expect it to run when the loop body never ran. The meaning \
+depends on knowing a rarely used rule."""
+principles = ["P4", "P2"]
+replacement = "Record the outcome in a variable inside the loop, then test that variable after the loop with an `if` statement."
+compliant = [
+    '''
+found = None
+for item in items:
+    if item.matches(query):
+        found = item
+        break
+if found is None:
+    report_missing(query)
+''',
+]
+violating = [
+    '''
+for item in items:
+    if item.matches(query):
+        break
+else:
+    report_missing(query)
+''',
+]
+
+[[rule]]
+id = "SP305"
+slug = "with-statement"
+category = "control-flow"
+construct = "The `with` statement and each of its context managers: `with open(path) as handle:`."
+anchor = { nodes = ["With", "withitem"] }
+status = "allowed"
+rationale = "`with` shows where a resource is acquired and where it is released."
+compliant = [
+    '''
+with open(path) as handle:
+    data = handle.read()
+''',
+]
+
+[[rule]]
+id = "SP306"
+slug = "match-statement"
+category = "control-flow"
+construct = "The `match` statement, its `case` clauses, and every pattern form."
+anchor = { nodes = [
+    "Match",
+    "match_case",
+    "MatchValue",
+    "MatchSingleton",
+    "MatchSequence",
+    "MatchMapping",
+    "MatchClass",
+    "MatchStar",
+    "MatchAs",
+    "MatchOr",
+] }
+status = "allowed"
+rationale = """\
+`match` lists the cases flat, one after another, and states the shape of the data \
+each case accepts. This is easier to review than a chain of `isinstance` checks \
+and index lookups."""
+compliant = [
+    '''
+match command:
+    case ["move", x, y]:
+        move(x, y)
+    case {"action": "stop"} | None:
+        stop()
+    case Point(x=0, y=0):
+        reset()
+    case [first, *others] if others:
+        batch(first, others)
+    case other:
+        log(other)
+''',
+]

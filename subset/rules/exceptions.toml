@@ -1,0 +1,109 @@
+# Exceptions: identifiers SP7xx.
+
+[[rule]]
+id = "SP701"
+slug = "try-statement"
+category = "exceptions"
+construct = "The `try` statement with `except`, `else`, and `finally` clauses."
+anchor = { nodes = ["Try"] }
+status = "allowed"
+rationale = "`try` shows which code may fail and where the failure is handled. The handlers are governed by SP702."
+compliant = [
+    '''
+try:
+    config = load(path)
+except FileNotFoundError:
+    config = DEFAULTS
+finally:
+    close_log()
+''',
+]
+
+[[rule]]
+id = "SP702"
+slug = "typed-except-handlers"
+category = "exceptions"
+construct = "An `except` clause: `except ValueError as error:`."
+anchor = { nodes = ["ExceptHandler"] }
+status = "restricted"
+condition = "Every `except` clause names the exception type or types it handles. A bare `except:` is not permitted."
+rationale = """\
+A bare `except:` also catches `KeyboardInterrupt` and `SystemExit`, and it does not \
+tell the reader which failure is expected. A named exception type states what the \
+handler is for."""
+principles = ["P1"]
+compliant = [
+    '''
+try:
+    value = int(text)
+except ValueError as error:
+    report(error)
+''',
+]
+violating = [
+    '''
+try:
+    value = int(text)
+except:
+    value = 0
+''',
+]
+
+[[rule]]
+id = "SP703"
+slug = "no-except-star"
+category = "exceptions"
+construct = "The `try` statement with `except*` clauses for exception groups."
+anchor = { nodes = ["TryStar"] }
+status = "banned"
+rationale = """\
+With `except*`, several handlers can run for one exception group, and each handler \
+sees only part of the group. This doubles the control-flow paths the reader must \
+trace. Exception groups come from concurrent code, which is not yet in the subset."""
+principles = ["P4"]
+replacement = "Catch the `ExceptionGroup` with a normal `except` clause and inspect its `exceptions` attribute explicitly."
+compliant = [
+    '''
+try:
+    run_all(tasks)
+except ExceptionGroup as group:
+    for error in group.exceptions:
+        report(error)
+''',
+]
+violating = [
+    '''
+try:
+    run_all(tasks)
+except* ValueError as group:
+    report(group)
+''',
+]
+
+[[rule]]
+id = "SP704"
+slug = "raise-statement"
+category = "exceptions"
+construct = "The `raise` statement, including `raise ... from ...`."
+anchor = { nodes = ["Raise"] }
+status = "allowed"
+rationale = "`raise` states which failure occurs and, with `from`, what caused it."
+compliant = [
+    '''
+raise ConfigError(path) from error
+''',
+]
+
+[[rule]]
+id = "SP705"
+slug = "assert-statement"
+category = "exceptions"
+construct = "The `assert` statement."
+anchor = { nodes = ["Assert"] }
+status = "allowed"
+rationale = "`assert` states an invariant at the place where the code depends on it."
+compliant = [
+    '''
+assert count >= 0, "count must not be negative"
+''',
+]

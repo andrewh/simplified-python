@@ -1,0 +1,352 @@
+# Expressions: identifiers SP1xx.
+
+[[rule]]
+id = "SP101"
+slug = "names-and-literals"
+category = "expressions"
+construct = "Names and literal constants: `total`, `42`, `\"text\"`, `None`, `True`, `...`."
+anchor = { nodes = ["Name", "Constant"] }
+status = "allowed"
+rationale = "Names and literals are the atoms of every expression. They say exactly what they are."
+compliant = [
+    '''
+limit = 10
+label = "ready"
+enabled = True
+''',
+]
+
+[[rule]]
+id = "SP102"
+slug = "expression-contexts"
+category = "expressions"
+construct = "Whether a name, attribute, or subscript is read, assigned, or deleted."
+anchor = { nodes = ["Load", "Store", "Del"] }
+status = "allowed"
+rationale = """\
+The context is not written separately. It follows from where the expression stands, \
+so it adds nothing for a reader to check. The statements that store and delete \
+are governed by their own rules."""
+compliant = [
+    '''
+count = 0
+print(count)
+''',
+]
+
+[[rule]]
+id = "SP103"
+slug = "attribute-access"
+category = "expressions"
+construct = "Reading or assigning an attribute: `user.name`."
+anchor = { nodes = ["Attribute"] }
+status = "allowed"
+rationale = "Attribute access is explicit about the object it reads from."
+compliant = [
+    '''
+name = user.name
+''',
+]
+
+[[rule]]
+id = "SP104"
+slug = "calls"
+category = "expressions"
+construct = "Calling a function, method, or class: `send(message, retries=3)`."
+anchor = { nodes = ["Call"] }
+status = "allowed"
+rationale = "A call names what it calls and lists what it passes."
+compliant = [
+    '''
+send(message, retries=3)
+''',
+]
+
+[[rule]]
+id = "SP105"
+slug = "subscripts-and-slices"
+category = "expressions"
+construct = "Indexing and slicing: `items[0]`, `items[1:-1]`, `table[row, column]`."
+anchor = { nodes = ["Subscript", "Slice"] }
+status = "allowed"
+rationale = "Indexing and slicing are explicit about the container and the position."
+compliant = [
+    '''
+first = items[0]
+middle = items[1:-1]
+''',
+]
+
+[[rule]]
+id = "SP106"
+slug = "container-displays"
+category = "expressions"
+construct = "List, tuple, dict, and set displays: `[a, b]`, `(a, b)`, `{\"k\": v}`, `{a, b}`."
+anchor = { nodes = ["List", "Tuple", "Dict", "Set"] }
+status = "allowed"
+rationale = "A display shows every element it builds."
+compliant = [
+    '''
+point = (x, y)
+names = ["ada", "grace"]
+ages = {"ada": 36}
+tags = {"new", "sale"}
+''',
+]
+
+[[rule]]
+id = "SP107"
+slug = "arithmetic-operators"
+category = "expressions"
+construct = "Arithmetic and unary sign operators: `+`, `-`, `*`, `/`, `//`, `%`, `**`, `@`, unary `+` and `-`."
+anchor = { nodes = ["BinOp", "UnaryOp", "Add", "Sub", "Mult", "Div", "FloorDiv", "Mod", "Pow", "MatMult", "UAdd", "USub"] }
+status = "allowed"
+rationale = "Arithmetic reads as it does in mathematics, and every reader already knows it."
+compliant = [
+    '''
+area = width * height
+remaining = -(total - used) // 2
+''',
+]
+
+[[rule]]
+id = "SP108"
+slug = "bitwise-operators"
+category = "expressions"
+construct = "Bitwise operators: `&`, `|`, `^`, `<<`, `>>`, `~`."
+anchor = { nodes = ["BitAnd", "BitOr", "BitXor", "LShift", "RShift", "Invert"] }
+status = "allowed"
+rationale = """\
+Bitwise operators have one meaning each and appear in flag handling, set algebra, \
+and type unions (`int | None`). They do not hide control flow."""
+compliant = [
+    '''
+mask = flags & ~READ_ONLY
+optional: int | None = None
+''',
+]
+
+[[rule]]
+id = "SP109"
+slug = "boolean-operators"
+category = "expressions"
+construct = "Boolean operators: `and`, `or`, `not`."
+anchor = { nodes = ["BoolOp", "And", "Or", "Not"] }
+status = "allowed"
+rationale = "Boolean operators read as English and have one meaning each."
+compliant = [
+    '''
+ready = connected and not paused
+''',
+]
+
+[[rule]]
+id = "SP110"
+slug = "single-comparison"
+category = "expressions"
+construct = "A comparison: `a < b`, `x == y`, `key in table`."
+anchor = { nodes = ["Compare"] }
+status = "restricted"
+condition = "A comparison uses exactly one comparison operator. Chained comparisons such as `a < b < c` are not permitted."
+rationale = """\
+One comparison is read at a glance. A chain such as `a < b == c` is an implicit \
+`and` of several comparisons and is easy to misread, in particular when the \
+operators are mixed."""
+principles = ["P2", "P4"]
+compliant = [
+    '''
+in_range = low <= value and value < high
+''',
+]
+violating = [
+    '''
+in_range = low <= value < high
+''',
+]
+
+[[rule]]
+id = "SP111"
+slug = "comparison-operators"
+category = "expressions"
+construct = "The comparison operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `is`, `is not`, `in`, `not in`."
+anchor = { nodes = ["Eq", "NotEq", "Lt", "LtE", "Gt", "GtE", "Is", "IsNot", "In", "NotIn"] }
+status = "allowed"
+rationale = "Each operator has one meaning. How many operators a comparison may use is governed by SP110."
+compliant = [
+    '''
+found = key in table
+missing = value is None
+''',
+]
+
+[[rule]]
+id = "SP112"
+slug = "f-strings"
+category = "expressions"
+construct = "Formatted string literals: `f\"{name}: {count:>4}\"`."
+anchor = { nodes = ["JoinedStr", "FormattedValue"] }
+status = "allowed"
+rationale = "An f-string shows each value at the place where it appears in the text. It is the one usual way to build a string from values."
+compliant = [
+    '''
+line = f"{name}: {count:>4}"
+''',
+]
+
+[[rule]]
+id = "SP113"
+slug = "no-template-strings"
+category = "expressions"
+construct = "Template string literals (PEP 750): `t\"Hello {name}\"`."
+anchor = { nodes = ["TemplateStr", "Interpolation"] }
+status = "banned"
+rationale = """\
+A template string looks like an f-string but produces a `Template` object, not a \
+`str`. Its meaning depends on the code that later consumes the template. This gives \
+a second spelling close to f-strings, and its effect is decided away from the \
+literal. Template strings are new and most reviewers do not know them yet."""
+principles = ["P2", "P1"]
+replacement = "Use an f-string to build text. To escape or quote values, call the escaping function explicitly on each value."
+compliant = [
+    '''
+greeting = f"Hello {escape(name)}"
+''',
+]
+violating = [
+    '''
+greeting = render(t"Hello {name}")
+''',
+]
+
+[[rule]]
+id = "SP114"
+slug = "flat-conditional-expression"
+category = "expressions"
+construct = "A conditional expression: `a if condition else b`."
+anchor = { nodes = ["IfExp"] }
+status = "restricted"
+condition = "The test and both branches of a conditional expression do not contain another conditional expression."
+rationale = """\
+One conditional expression reads as a sentence. Nested conditional expressions \
+must be unpacked to find which branch applies. An `if` statement shows the same \
+logic as visible branches."""
+principles = ["P4"]
+compliant = [
+    '''
+label = "on" if enabled else "off"
+''',
+]
+violating = [
+    '''
+label = "high" if level > 2 else "mid" if level > 1 else "low"
+''',
+]
+
+[[rule]]
+id = "SP115"
+slug = "starred-unpacking"
+category = "expressions"
+construct = "Starred expressions: `f(*args)`, `[*head, *tail]`, `first, *rest = items`."
+anchor = { nodes = ["Starred"] }
+status = "restricted"
+condition = """\
+A starred expression may unpack values into a call or a list, tuple, or set display. \
+It must not be an assignment target or a `for` loop target."""
+rationale = """\
+Unpacking into a call or display shows where the values go. A starred target \
+splits a sequence by position, and the reader must count the other targets to know \
+what each name holds. Indexing or slicing says it directly."""
+principles = ["P4"]
+compliant = [
+    '''
+combined = [*head, *tail]
+first = items[0]
+rest = items[1:]
+''',
+]
+violating = [
+    '''
+first, *rest = items
+''',
+]
+
+[[rule]]
+id = "SP116"
+slug = "lambda-as-argument"
+category = "expressions"
+construct = "Anonymous functions: `lambda item: item.size`."
+anchor = { nodes = ["Lambda"] }
+status = "restricted"
+condition = "A lambda is permitted only as a direct argument of a call, such as `sorted(items, key=lambda item: item.size)`."
+rationale = """\
+As a short argument, a lambda keeps a one-line function next to the call that uses \
+it. A lambda stored in a name or a data structure is a function without a name: \
+it cannot be found by searching, cannot be tested directly, and shows no name in \
+tracebacks. Use `def` for it."""
+principles = ["P1"]
+compliant = [
+    '''
+ordered = sorted(items, key=lambda item: item.size)
+''',
+]
+violating = [
+    '''
+by_size = lambda item: item.size
+ordered = sorted(items, key=by_size)
+''',
+]
+
+[[rule]]
+id = "SP117"
+slug = "simple-comprehensions"
+category = "expressions"
+construct = "List, set, and dict comprehensions, generator expressions, and their `for` / `if` clauses."
+anchor = { nodes = ["ListComp", "SetComp", "DictComp", "GeneratorExp", "comprehension"] }
+status = "restricted"
+condition = "A comprehension has exactly one `for` clause and at most one `if` clause, and contains no other comprehension."
+rationale = """\
+A comprehension with one `for` and one filter reads left to right. With more \
+clauses, or a comprehension inside another, the order of evaluation runs \
+inside-out and the reader must reconstruct the loops. Nested `for` statements \
+show the same logic in the order it runs."""
+principles = ["P4"]
+compliant = [
+    '''
+names = [user.name for user in users if user.active]
+''',
+]
+violating = [
+    '''
+cells = [cell for row in grid for cell in row if cell]
+''',
+    '''
+totals = {key: sum(v for v in values) for key, values in groups.items()}
+''',
+]
+
+[[rule]]
+id = "SP118"
+slug = "no-walrus"
+category = "expressions"
+construct = "Assignment expressions (the walrus operator): `(match := pattern.search(line))`."
+anchor = { nodes = ["NamedExpr"] }
+status = "banned"
+rationale = """\
+An assignment expression binds a name in the middle of another expression, \
+where a reader does not expect a binding. It gives a second spelling of assignment, \
+and the binding is easy to overlook when scanning for where a name is set."""
+principles = ["P2", "P3"]
+replacement = "Assign the value in its own statement on the line before, then use the name."
+compliant = [
+    '''
+found = pattern.search(line)
+if found:
+    handle(found)
+''',
+]
+violating = [
+    '''
+if (found := pattern.search(line)):
+    handle(found)
+''',
+]

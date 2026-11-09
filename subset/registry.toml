@@ -1,0 +1,69 @@
+# Manifest for the simplified-Python rule registry.
+#
+# python_version   Python grammar the registry classifies. Validation that reads
+#                  the live `ast` module fails on any other interpreter.
+# ruleset_version  Raised whenever a rule is added, removed, or changes status.
+#                  Each raise is recorded as a [[changelog]] entry.
+# [[category]]     Categories in reference order. `block` is the hundreds digit
+#                  of every identifier in the category (block 6 = SP6xx).
+
+python_version = "3.14"
+ruleset_version = 1
+
+[[category]]
+name = "expressions"
+title = "Expressions"
+block = 1
+file = "rules/expressions.toml"
+
+[[category]]
+name = "statements"
+title = "Statements"
+block = 2
+file = "rules/statements.toml"
+
+[[category]]
+name = "control-flow"
+title = "Control flow"
+block = 3
+file = "rules/control-flow.toml"
+
+[[category]]
+name = "functions"
+title = "Functions"
+block = 4
+file = "rules/functions.toml"
+
+[[category]]
+name = "classes"
+title = "Classes"
+block = 5
+file = "rules/classes.toml"
+
+[[category]]
+name = "imports"
+title = "Imports"
+block = 6
+file = "rules/imports.toml"
+
+[[category]]
+name = "exceptions"
+title = "Exceptions"
+block = 7
+file = "rules/exceptions.toml"
+
+[[category]]
+name = "async"
+title = "Asynchronous code"
+block = 8
+file = "rules/async.toml"
+
+[[category]]
+name = "typing"
+title = "Typing"
+block = 9
+file = "rules/typing.toml"
+
+[[changelog]]
+version = 1
+summary = "Initial rule set: every construct in the Python 3.14 grammar classified."

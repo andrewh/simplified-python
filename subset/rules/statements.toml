@@ -1,0 +1,149 @@
+# Statements: identifiers SP2xx.
+
+[[rule]]
+id = "SP201"
+slug = "module"
+category = "statements"
+construct = "A source file: the module that holds its top-level statements."
+anchor = { nodes = ["Module"] }
+status = "allowed"
+rationale = "Every file is a module. The rules for its contents apply to the statements it holds."
+compliant = [
+    '''
+VERSION = "1.0"
+''',
+]
+
+[[rule]]
+id = "SP202"
+slug = "expression-statements"
+category = "statements"
+construct = "An expression used as a statement, usually a call whose result is not kept: `log.info(\"done\")`."
+anchor = { nodes = ["Expr"] }
+status = "allowed"
+rationale = "Calling a function for its effect is ordinary, and docstrings are expression statements."
+compliant = [
+    '''
+log.info("done")
+''',
+]
+
+[[rule]]
+id = "SP203"
+slug = "single-target-assignment"
+category = "statements"
+construct = "Assignment: `total = 0`, `x, y = point`."
+anchor = { nodes = ["Assign"] }
+status = "restricted"
+condition = "An assignment has exactly one target, before a single `=`. Chained assignment such as `a = b = 0` is not permitted. Unpacking into one tuple target such as `x, y = point` is permitted."
+rationale = """\
+With chained assignment, several names refer to the same object. If the object is \
+mutable, a change through one name appears through the other. One target per \
+statement makes each binding explicit."""
+principles = ["P2", "P3"]
+compliant = [
+    '''
+low = 0
+high = 0
+x, y = point
+''',
+]
+violating = [
+    '''
+low = high = 0
+''',
+]
+
+[[rule]]
+id = "SP204"
+slug = "annotated-assignment"
+category = "statements"
+construct = "Assignment with a type annotation: `count: int = 0`."
+anchor = { nodes = ["AnnAssign"] }
+status = "allowed"
+rationale = "An annotated assignment is an ordinary assignment that also states the type."
+compliant = [
+    '''
+count: int = 0
+''',
+]
+
+[[rule]]
+id = "SP205"
+slug = "augmented-assignment"
+category = "statements"
+construct = "Augmented assignment: `total += amount`."
+anchor = { nodes = ["AugAssign"] }
+status = "allowed"
+rationale = "Augmented assignment is a familiar shorthand that names its target once."
+compliant = [
+    '''
+total += amount
+''',
+]
+
+[[rule]]
+id = "SP206"
+slug = "delete-statement"
+category = "statements"
+construct = "The `del` statement: `del cache[key]`."
+anchor = { nodes = ["Delete"] }
+status = "allowed"
+rationale = "`del` names exactly the name, item, or attribute it removes."
+compliant = [
+    '''
+del cache[key]
+''',
+]
+
+[[rule]]
+id = "SP207"
+slug = "pass-statement"
+category = "statements"
+construct = "The `pass` statement."
+anchor = { nodes = ["Pass"] }
+status = "allowed"
+rationale = "`pass` marks an intentionally empty block and does nothing else."
+compliant = [
+    '''
+class Empty:
+    pass
+''',
+]
+
+[[rule]]
+id = "SP208"
+slug = "no-global-or-nonlocal"
+category = "statements"
+construct = "The `global` and `nonlocal` declarations."
+anchor = { nodes = ["Global", "Nonlocal"] }
+status = "banned"
+rationale = """\
+`global` and `nonlocal` let a function rebind a name that belongs to another scope. \
+A reader of the module or of the outer function cannot see from that code that the \
+name is changed somewhere else."""
+principles = ["P3"]
+replacement = "Pass the value in as an argument and return the new value. To keep shared state, put it in an object that is passed explicitly."
+compliant = [
+    '''
+def increment(count):
+    return count + 1
+
+count = increment(count)
+''',
+]
+violating = [
+    '''
+def increment():
+    global count
+    count += 1
+''',
+    '''
+def counter():
+    count = 0
+    def step():
+        nonlocal count
+        count += 1
+    return step
+''',
+]

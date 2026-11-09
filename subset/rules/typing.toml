@@ -1,0 +1,76 @@
+# Typing: identifiers SP9xx.
+
+[[rule]]
+id = "SP901"
+slug = "type-alias-statement"
+category = "typing"
+construct = "The `type` statement, which declares a type alias: `type Pair = tuple[int, int]`."
+anchor = { nodes = ["TypeAlias"] }
+status = "allowed"
+rationale = "A `type` statement gives a type a name, at one visible place."
+compliant = [
+    '''
+type Pair = tuple[int, int]
+''',
+]
+
+[[rule]]
+id = "SP902"
+slug = "type-parameters"
+category = "typing"
+construct = "Type parameters in brackets after a function, class, or alias name: `[T]`, `[**P]`, `[*Ts]`."
+anchor = { nodes = ["TypeVar", "ParamSpec", "TypeVarTuple"] }
+status = "allowed"
+rationale = """\
+Inline type parameters are declared where they are used, and their scope is the \
+definition that declares them. Module-level `TypeVar(...)` objects, which these \
+replace, are visible across the whole module."""
+compliant = [
+    '''
+def first[T](items: list[T]) -> T:
+    return items[0]
+
+
+class Registry[K, V]:
+    pass
+
+
+type Callback[**P] = Callable[P, None]
+type Row[*Ts] = tuple[*Ts]
+''',
+]
+
+[[rule]]
+id = "SP903"
+slug = "optional-annotations"
+category = "typing"
+construct = "Type annotations on parameters and on assignments: `def f(count: int)`, `total: float = 0.0`."
+anchor = { nodes = ["arg", "AnnAssign"], attribute = "annotation" }
+status = "allowed"
+rationale = """\
+Annotations state the expected type at the place of use, and type checkers can \
+verify them. They are permitted but not required. A rule that requires them would \
+be a rule about a construct that is absent, and the anchor model cannot express \
+that. A later change may add it."""
+compliant = [
+    '''
+def repeat(text: str, count: int) -> str:
+    total: int = len(text) * count
+    return text * count
+''',
+]
+
+[[rule]]
+id = "SP904"
+slug = "optional-return-annotations"
+category = "typing"
+construct = "A return annotation on a function: `def f() -> int`."
+anchor = { nodes = ["FunctionDef"], attribute = "returns" }
+status = "allowed"
+rationale = "A return annotation states what the function produces. It is permitted but not required, for the reason given in SP903."
+compliant = [
+    '''
+def count_words(text) -> int:
+    return len(text.split())
+''',
+]

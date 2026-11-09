@@ -1,0 +1,73 @@
+# Imports: identifiers SP6xx.
+
+[[rule]]
+id = "SP601"
+slug = "no-star-import"
+category = "imports"
+construct = "Importing every public name from a module with `from module import *`."
+anchor = { nodes = ["alias"], attribute = "name", value = "*" }
+status = "banned"
+rationale = """\
+A star import binds names that do not appear anywhere in the importing file. \
+A reader who meets an unfamiliar name cannot tell which module it came from, \
+and a later change to the imported module can silently add or shadow names."""
+principles = ["P1", "P3"]
+replacement = "Import the names you use explicitly, or import the module and qualify each name."
+compliant = [
+    '''
+from os.path import join, splitext
+
+stem, suffix = splitext(join("build", "out.txt"))
+''',
+]
+violating = [
+    '''
+from os.path import *
+
+stem, suffix = splitext(join("build", "out.txt"))
+''',
+]
+
+[[rule]]
+id = "SP602"
+slug = "explicit-imports"
+category = "imports"
+construct = "`import module`, `from module import name`, and `as` aliases."
+anchor = { nodes = ["Import", "ImportFrom", "alias"] }
+status = "allowed"
+rationale = """\
+An explicit import says where each name comes from, at the top of the file. Star \
+imports and relative-import depth are governed by SP601 and SP603."""
+compliant = [
+    '''
+import json
+from pathlib import Path
+from collections import defaultdict as multimap
+''',
+]
+
+[[rule]]
+id = "SP603"
+slug = "shallow-relative-imports"
+category = "imports"
+construct = "Relative imports: `from . import sibling`, `from ..package import name`."
+anchor = { nodes = ["ImportFrom"], attribute = "level" }
+status = "restricted"
+condition = "A relative import has at most one leading dot. Imports from parent packages use the absolute module path."
+rationale = """\
+One dot means "this package", and the reader can see that in the file tree. Each \
+extra dot makes the reader count directories to find the module, and the import \
+breaks silently when the file moves."""
+principles = ["P1"]
+compliant = [
+    '''
+from . import models
+from .models import User
+from myapp.core import settings
+''',
+]
+violating = [
+    '''
+from ..core import settings
+''',
+]

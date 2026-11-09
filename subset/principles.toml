@@ -1,0 +1,26 @@
+# Review principles. Every `restricted` or `banned` rule cites at least one.
+# Identifiers are stable: never renumber or reuse a principle identifier.
+
+[[principle]]
+id = "P1"
+name = "local-reasoning"
+statement = "The meaning of a piece of code can be worked out from the code on the screen."
+cost = "The reviewer has to leave the diff to find out what a name refers to or what a construct does."
+
+[[principle]]
+id = "P2"
+name = "one-obvious-spelling"
+statement = "Each behaviour has one usual way to write it."
+cost = "The reviewer has to recognise several equivalent forms and check that each one means what the others mean."
+
+[[principle]]
+id = "P3"
+name = "no-action-at-a-distance"
+statement = "Code changes only the state and behaviour that it visibly names."
+cost = "The reviewer cannot see from the changed lines which other code the change affects."
+
+[[principle]]
+id = "P4"
+name = "bounded-reading-cost"
+statement = "Each construct can be read once, from left to right and top to bottom, without unpacking it."
+cost = "The reviewer has to unpack a dense construct inside-out, or trace extra control-flow paths, before judging it."

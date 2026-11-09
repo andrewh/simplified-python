@@ -1,0 +1,107 @@
+# Classes: identifiers SP5xx.
+
+[[rule]]
+id = "SP501"
+slug = "class-definitions"
+category = "classes"
+construct = "Class definitions with `class`."
+anchor = { nodes = ["ClassDef"] }
+status = "allowed"
+rationale = """\
+A class groups data with the methods that act on it, under one name. Base lists, \
+class keywords, and class decorators are governed by SP502 to SP504."""
+compliant = [
+    '''
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+''',
+]
+
+[[rule]]
+id = "SP502"
+slug = "no-class-keywords"
+category = "classes"
+construct = "Keyword arguments in a class header: `class A(metaclass=Meta)`, `class B(Base, flag=True)`."
+anchor = { nodes = ["ClassDef"], attribute = "keywords" }
+status = "banned"
+rationale = """\
+Class keywords select a metaclass or pass arguments to an `__init_subclass__` hook. \
+Either can change how the class is built, but the code that does this is somewhere \
+else. The reader of the class body cannot see what runs when the class is defined."""
+principles = ["P1", "P3"]
+replacement = "Write the behaviour as explicit methods or as module-level functions. To check subclasses, call a check function explicitly after the class is defined."
+compliant = [
+    '''
+class Plugin(Base):
+    name = "csv"
+
+
+register(Plugin)
+''',
+]
+violating = [
+    '''
+class Plugin(Base, metaclass=Registered):
+    name = "csv"
+''',
+]
+
+[[rule]]
+id = "SP503"
+slug = "single-base-class"
+category = "classes"
+construct = "The base classes listed in a class header: `class Child(Parent)`."
+anchor = { nodes = ["ClassDef"], attribute = "bases" }
+status = "restricted"
+condition = "A class lists at most one base class."
+rationale = """\
+With multiple inheritance, the method that runs depends on the method resolution \
+order across every base class and their bases. To answer the question "what does \
+this call do?", the reader must read code outside the class."""
+principles = ["P1"]
+compliant = [
+    '''
+class Admin(User):
+    pass
+''',
+]
+violating = [
+    '''
+class Admin(User, AuditMixin):
+    pass
+''',
+]
+
+[[rule]]
+id = "SP504"
+slug = "class-decorator-allowlist"
+category = "classes"
+construct = "Decorators on a class: `@dataclass`."
+anchor = { nodes = ["ClassDef"], attribute = "decorator_list" }
+status = "restricted"
+condition = """\
+The only permitted class decorator is `@dataclass` or `@dataclasses.dataclass`, \
+written with or without keyword arguments, such as `@dataclass(frozen=True)`."""
+rationale = """\
+A class decorator can replace or change the class under it. Dataclasses are the \
+standard way to declare a record type, and every Python reader knows what they \
+generate. Other class decorators register, wrap, or rewrite the class away from \
+its definition."""
+principles = ["P1", "P3"]
+compliant = [
+    '''
+@dataclass(frozen=True)
+class Point:
+    x: int
+    y: int
+''',
+]
+violating = [
+    '''
+@register("csv")
+class CsvReader:
+    pass
+''',
+]

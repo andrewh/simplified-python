@@ -1,0 +1,60 @@
+# Asynchronous code: identifiers SP8xx.
+#
+# Verdict for this rule-set version: async syntax is not yet part of the subset.
+# Concurrency is where review cost is highest, and a partial answer is worse than an
+# explicit "not yet". A later rule-set version may replace these bans with rules.
+
+[[rule]]
+id = "SP801"
+slug = "no-async"
+category = "async"
+construct = "Coroutines and asynchronous statements: `async def`, `await`, `async for`, `async with`."
+anchor = { nodes = ["AsyncFunctionDef", "Await", "AsyncFor", "AsyncWith"] }
+status = "banned"
+rationale = """\
+Every `await` is a point where other code can run and change shared state. To \
+review it, the reader must consider every interleaving, and this code is not \
+visible in the function being read. The subset does not yet define rules that keep \
+that cost bounded, so async syntax is excluded for now."""
+principles = ["P3", "P4"]
+replacement = "Write synchronous code. If concurrency is necessary, keep it outside code that must conform to the subset until async rules exist."
+compliant = [
+    '''
+def fetch_all(urls):
+    return [download(url) for url in urls]
+''',
+]
+violating = [
+    '''
+async def fetch_all(session, urls):
+    async with session:
+        return [await session.get(url) for url in urls]
+''',
+    '''
+async def drain(stream):
+    async for chunk in stream:
+        consume(chunk)
+''',
+]
+
+[[rule]]
+id = "SP802"
+slug = "no-async-comprehension"
+category = "async"
+construct = "An `async for` clause in a comprehension: `[x async for x in stream]`."
+anchor = { nodes = ["comprehension"], attribute = "is_async" }
+status = "banned"
+rationale = "An asynchronous comprehension is async code in expression form, so the reasoning of SP801 applies to it."
+principles = ["P3", "P4"]
+replacement = "Write synchronous code; see SP801."
+compliant = [
+    '''
+chunks = [chunk for chunk in stream]
+''',
+]
+violating = [
+    '''
+async def collect(stream):
+    return [chunk async for chunk in stream]
+''',
+]

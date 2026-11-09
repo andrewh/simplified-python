@@ -1,0 +1,202 @@
+# Functions: identifiers SP4xx.
+
+[[rule]]
+id = "SP401"
+slug = "function-definitions"
+category = "functions"
+construct = "Function definitions with `def`, their parameter lists and parameters, and `return`."
+anchor = { nodes = ["FunctionDef", "arguments", "arg", "Return"] }
+status = "allowed"
+rationale = """\
+A named function with an explicit parameter list is the basic unit of review. \
+Decorators, variadic parameters, and nested definitions are governed by SP405 to SP408."""
+compliant = [
+    '''
+def scale(value, factor=2, *, clamp=False):
+    result = value * factor
+    return min(result, LIMIT) if clamp else result
+''',
+]
+
+[[rule]]
+id = "SP402"
+slug = "keyword-arguments"
+category = "functions"
+construct = "Keyword arguments in a call: `connect(host, timeout=5)`."
+anchor = { nodes = ["keyword"] }
+status = "allowed"
+rationale = "A keyword argument names the parameter it sets, so the call explains itself."
+compliant = [
+    '''
+connect(host, timeout=5)
+''',
+]
+
+[[rule]]
+id = "SP403"
+slug = "yield"
+category = "functions"
+construct = "The `yield` expression, which makes a function a generator."
+anchor = { nodes = ["Yield"] }
+status = "allowed"
+rationale = "A generator produces values one at a time in plain sequential code. Each `yield` marks a point where a value is produced."
+compliant = [
+    '''
+def chunks(items, size):
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+''',
+]
+
+[[rule]]
+id = "SP404"
+slug = "yield-from"
+category = "functions"
+construct = "The `yield from` expression, which passes on every value of another iterable."
+anchor = { nodes = ["YieldFrom"] }
+status = "allowed"
+rationale = """\
+`yield from` names the iterable it delegates to. It replaces a loop that yields each \
+item and does not hide where the values come from. Its separate use for \
+generator-based coroutines is outside this subset, because async code is not yet \
+permitted (SP801)."""
+compliant = [
+    '''
+def walk(tree):
+    yield tree.value
+    for child in tree.children:
+        yield from walk(child)
+''',
+]
+
+[[rule]]
+id = "SP405"
+slug = "function-decorator-allowlist"
+category = "functions"
+construct = "Decorators on a function or method: `@property`."
+anchor = { nodes = ["FunctionDef"], attribute = "decorator_list" }
+status = "restricted"
+condition = """\
+Each decorator on a function is one of: `@property`, `@<name>.setter` or \
+`@<name>.deleter` for a property defined in the same class, `@staticmethod`, \
+`@classmethod`, or `@override` (imported from `typing`, or written as \
+`@typing.override`). No other decorator is permitted."""
+rationale = """\
+A decorator can replace the function under it with anything. The reader sees one \
+definition, but a different object runs. The allowlist keeps the decorators whose \
+effect every Python reader knows. A name-based allowlist cannot prove that the \
+name refers to the standard-library object, so the names on the list must not be \
+rebound."""
+principles = ["P1", "P3"]
+compliant = [
+    '''
+class Account:
+    @property
+    def balance(self):
+        return self._balance
+
+    @balance.setter
+    def balance(self, value):
+        self._balance = value
+
+    @classmethod
+    def empty(cls):
+        return cls(0)
+''',
+]
+violating = [
+    '''
+@retry(times=3)
+def fetch(url):
+    return download(url)
+''',
+]
+
+[[rule]]
+id = "SP406"
+slug = "forwarding-varargs"
+category = "functions"
+construct = "A variadic positional parameter: `def f(*args)`."
+anchor = { nodes = ["arguments"], attribute = "vararg" }
+status = "restricted"
+condition = "A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged."
+rationale = """\
+`*args` hides the parameters a function takes. The reader must find every caller \
+to learn what is passed. Forwarding to one call is the one use where the target \
+function documents the real parameters."""
+principles = ["P1"]
+compliant = [
+    '''
+def logged(message, *args):
+    return log.info(message, *args)
+''',
+]
+violating = [
+    '''
+def area(*args):
+    return args[0] * args[1]
+''',
+]
+
+[[rule]]
+id = "SP407"
+slug = "forwarding-kwargs"
+category = "functions"
+construct = "A variadic keyword parameter: `def f(**kwargs)`."
+anchor = { nodes = ["arguments"], attribute = "kwarg" }
+status = "restricted"
+condition = "A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged."
+rationale = """\
+`**kwargs` hides which options a function accepts. Lookups such as \
+`kwargs.get("timeout")` scatter the real parameter list through the body. \
+Forwarding to one call is the one use where the target function documents the \
+real parameters."""
+principles = ["P1"]
+compliant = [
+    '''
+def make_client(url, **kwargs):
+    return Client(url, **kwargs)
+''',
+]
+violating = [
+    '''
+def connect(**kwargs):
+    timeout = kwargs.get("timeout", 5)
+    return open_socket(kwargs["host"], timeout)
+''',
+]
+
+[[rule]]
+id = "SP408"
+slug = "nested-functions-without-closures"
+category = "functions"
+construct = "A function defined inside the body of another function."
+anchor = { nodes = ["FunctionDef"], attribute = "body" }
+status = "restricted"
+condition = """\
+A function body may contain a nested `def` only if the nested function does not \
+use any name that is a parameter or a local variable of the enclosing function."""
+rationale = """\
+A nested function that captures names from its enclosing function is a closure. \
+Its behaviour depends on state that is not in its parameter list, and that state \
+can change after the closure is created. A nested function that captures nothing \
+is a local helper. Its inputs are visible."""
+principles = ["P1", "P3"]
+compliant = [
+    '''
+def total_size(paths):
+    def size_of(path):
+        return path.stat().st_size
+
+    return sum(size_of(path) for path in paths)
+''',
+]
+violating = [
+    '''
+def make_scaler(factor):
+    def scale(value):
+        return value * factor
+
+    return scale
+''',
+]
