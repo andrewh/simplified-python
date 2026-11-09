@@ -1,0 +1,38 @@
+# AGENTS.md
+
+## Environment
+
+- Use uv for everything. Python 3.14 is pinned in `.python-version`. The registry's coverage check reads the live `ast` module and fails on any other version.
+- Set up: `uv sync` (creates `.venv` from `uv.lock`; uv installs Python 3.14 if it is missing).
+- Dependencies: pytest is in the `dev` dependency group (`[dependency-groups]` in `pyproject.toml`), which `uv sync` installs by default. Add dependencies with `uv add` / `uv add --dev`, never by editing `uv.lock`. Commit `uv.lock`.
+
+## Commands
+
+- Validate the registry: `uv run python -m simplified_python.registry --check`
+- Regenerate the reference and README summary: `uv run python -m simplified_python.reference`
+- Check the reference is current: `uv run python -m simplified_python.reference --check`
+- Run tests: `uv run pytest`
+- Run an example: `uv run examples/<file>.py`
+- Validate the OpenSpec change: `openspec validate <change> --strict` (from the repo root)
+
+## Source of truth
+
+- The subset is defined only by the TOML registry under `subset/`. Edit the registry, never `docs/subset.md`.
+- `docs/subset.md` and the block between the `GENERATED SUBSET SUMMARY` markers in `README.md` are generated. Regenerate both after every registry change and commit them. A test fails when either is stale. README text outside the markers is hand-written.
+
+## Adding a rule
+
+1. Add a `[[rule]]` record to the category file in `subset/rules/`. Take the next free identifier from that category's block (for example SP6xx for imports), as declared in `subset/registry.toml`.
+2. Fill in `id`, `slug`, `category`, `construct`, `anchor`, `status`, `rationale`, and `compliant`. A `restricted` rule also needs `condition`, `principles`, and `violating`. A `banned` rule also needs `replacement`, `principles`, and `violating`.
+3. The anchor lists `ast` class names. To narrow it, add one `attribute` and, optionally, a `value` to match. Each reachable node type needs exactly one unnarrowed rule.
+4. Append the identifier to `ids` in `subset/published-ids.toml`. Never delete or reorder entries. To remove a rule, add a `[[retired]]` entry instead.
+5. Raise `ruleset_version` in `subset/registry.toml` and add a `[[changelog]]` entry when you add or remove a rule or change its status.
+6. Run the validator, regenerate the reference, and run the tests.
+
+## Examples
+
+- `examples/*.py` must conform to the subset, except `examples/rewrite/before.py`, which deliberately does not. `tests/test_examples.py` runs each example and rejects banned constructs. Restricted-rule conditions must be checked by hand.
+
+## Tests
+
+- Broken-registry fixtures in `tests/fixtures/<name>/` are overlays on `tests/fixtures/base/`. A fixture holds only the files that differ from the base. Add the expected error to `BROKEN` in `tests/test_validator.py`.
