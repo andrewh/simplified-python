@@ -22,3 +22,5 @@ jobs:
         run: uv run pytest
       - name: Check reference is up to date
         run: uv run python -m simplified_python.reference --check
+      - name: Check agent skill is up to date
+        run: uv run python -m simplified_python.skill --check

@@ -60,7 +60,7 @@ def test_registry_loads_with_standard_library_only():
     tree = ast.parse(Path(module.__file__).read_text())
     imported = {alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
     imported |= {node.module.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
-    assert imported - {"__future__"} <= set(sys.stdlib_module_names)
+    assert imported - {"__future__", "simplified_python"} <= set(sys.stdlib_module_names)
 
 
 def test_cited_principles_resolve_to_statements():

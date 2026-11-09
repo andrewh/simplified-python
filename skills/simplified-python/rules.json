@@ -1,0 +1,327 @@
+{
+  "ruleset_version": 1,
+  "python_version": "3.14",
+  "rules": [
+    {
+      "id": "SP110",
+      "slug": "single-comparison",
+      "status": "restricted",
+      "construct": "A comparison: `a < b`, `x == y`, `key in table`.",
+      "condition": "A comparison uses exactly one comparison operator. Chained comparisons such as `a < b < c` are not permitted.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "Compare"
+        ]
+      }
+    },
+    {
+      "id": "SP113",
+      "slug": "no-template-strings",
+      "status": "banned",
+      "construct": "Template string literals (PEP 750): `t\"Hello {name}\"`.",
+      "condition": null,
+      "replacement": "Use an f-string to build text. To escape or quote values, call the escaping function explicitly on each value.",
+      "anchor": {
+        "nodes": [
+          "TemplateStr",
+          "Interpolation"
+        ]
+      }
+    },
+    {
+      "id": "SP114",
+      "slug": "flat-conditional-expression",
+      "status": "restricted",
+      "construct": "A conditional expression: `a if condition else b`.",
+      "condition": "The test and both branches of a conditional expression do not contain another conditional expression.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "IfExp"
+        ]
+      }
+    },
+    {
+      "id": "SP115",
+      "slug": "starred-unpacking",
+      "status": "restricted",
+      "construct": "Starred expressions: `f(*args)`, `[*head, *tail]`, `first, *rest = items`.",
+      "condition": "A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "Starred"
+        ]
+      }
+    },
+    {
+      "id": "SP116",
+      "slug": "lambda-as-argument",
+      "status": "restricted",
+      "construct": "Anonymous functions: `lambda item: item.size`.",
+      "condition": "A lambda is permitted only as a direct argument of a call, such as `sorted(items, key=lambda item: item.size)`.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "Lambda"
+        ]
+      }
+    },
+    {
+      "id": "SP117",
+      "slug": "simple-comprehensions",
+      "status": "restricted",
+      "construct": "List, set, and dict comprehensions, generator expressions, and their `for` / `if` clauses.",
+      "condition": "A comprehension has exactly one `for` clause and at most one `if` clause, and contains no other comprehension.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "ListComp",
+          "SetComp",
+          "DictComp",
+          "GeneratorExp",
+          "comprehension"
+        ]
+      }
+    },
+    {
+      "id": "SP118",
+      "slug": "no-walrus",
+      "status": "banned",
+      "construct": "Assignment expressions (the walrus operator): `(match := pattern.search(line))`.",
+      "condition": null,
+      "replacement": "Assign the value in its own statement on the line before, then use the name.",
+      "anchor": {
+        "nodes": [
+          "NamedExpr"
+        ]
+      }
+    },
+    {
+      "id": "SP203",
+      "slug": "single-target-assignment",
+      "status": "restricted",
+      "construct": "Assignment: `total = 0`, `x, y = point`.",
+      "condition": "An assignment has exactly one target, before a single `=`. Chained assignment such as `a = b = 0` is not permitted. Unpacking into one tuple target such as `x, y = point` is permitted.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "Assign"
+        ]
+      }
+    },
+    {
+      "id": "SP208",
+      "slug": "no-global-or-nonlocal",
+      "status": "banned",
+      "construct": "The `global` and `nonlocal` declarations.",
+      "condition": null,
+      "replacement": "Pass the value in as an argument and return the new value. To keep shared state, put it in an object that is passed explicitly.",
+      "anchor": {
+        "nodes": [
+          "Global",
+          "Nonlocal"
+        ]
+      }
+    },
+    {
+      "id": "SP304",
+      "slug": "no-loop-else",
+      "status": "banned",
+      "construct": "An `else` clause on a `for` or `while` loop.",
+      "condition": null,
+      "replacement": "Record the outcome in a variable inside the loop, then test that variable after the loop with an `if` statement.",
+      "anchor": {
+        "nodes": [
+          "For",
+          "While"
+        ],
+        "attribute": "orelse"
+      }
+    },
+    {
+      "id": "SP405",
+      "slug": "function-decorator-allowlist",
+      "status": "restricted",
+      "construct": "Decorators on a function or method: `@property`.",
+      "condition": "Each decorator on a function is one of: `@property`, `@<name>.setter` or `@<name>.deleter` for a property defined in the same class, `@staticmethod`, `@classmethod`, or `@override` (imported from `typing`, or written as `@typing.override`). No other decorator is permitted.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "FunctionDef"
+        ],
+        "attribute": "decorator_list"
+      }
+    },
+    {
+      "id": "SP406",
+      "slug": "forwarding-varargs",
+      "status": "restricted",
+      "construct": "A variadic positional parameter: `def f(*args)`.",
+      "condition": "A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "arguments"
+        ],
+        "attribute": "vararg"
+      }
+    },
+    {
+      "id": "SP407",
+      "slug": "forwarding-kwargs",
+      "status": "restricted",
+      "construct": "A variadic keyword parameter: `def f(**kwargs)`.",
+      "condition": "A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "arguments"
+        ],
+        "attribute": "kwarg"
+      }
+    },
+    {
+      "id": "SP408",
+      "slug": "nested-functions-without-closures",
+      "status": "restricted",
+      "construct": "A function defined inside the body of another function.",
+      "condition": "A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "FunctionDef"
+        ],
+        "attribute": "body"
+      }
+    },
+    {
+      "id": "SP502",
+      "slug": "no-class-keywords",
+      "status": "banned",
+      "construct": "Keyword arguments in a class header: `class A(metaclass=Meta)`, `class B(Base, flag=True)`.",
+      "condition": null,
+      "replacement": "Write the behaviour as explicit methods or as module-level functions. To check subclasses, call a check function explicitly after the class is defined.",
+      "anchor": {
+        "nodes": [
+          "ClassDef"
+        ],
+        "attribute": "keywords"
+      }
+    },
+    {
+      "id": "SP503",
+      "slug": "single-base-class",
+      "status": "restricted",
+      "construct": "The base classes listed in a class header: `class Child(Parent)`.",
+      "condition": "A class lists at most one base class.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "ClassDef"
+        ],
+        "attribute": "bases"
+      }
+    },
+    {
+      "id": "SP504",
+      "slug": "class-decorator-allowlist",
+      "status": "restricted",
+      "construct": "Decorators on a class: `@dataclass`.",
+      "condition": "The only permitted class decorator is `@dataclass` or `@dataclasses.dataclass`, written with or without keyword arguments, such as `@dataclass(frozen=True)`.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "ClassDef"
+        ],
+        "attribute": "decorator_list"
+      }
+    },
+    {
+      "id": "SP601",
+      "slug": "no-star-import",
+      "status": "banned",
+      "construct": "Importing every public name from a module with `from module import *`.",
+      "condition": null,
+      "replacement": "Import the names you use explicitly, or import the module and qualify each name.",
+      "anchor": {
+        "nodes": [
+          "alias"
+        ],
+        "attribute": "name",
+        "value": "*"
+      }
+    },
+    {
+      "id": "SP603",
+      "slug": "shallow-relative-imports",
+      "status": "restricted",
+      "construct": "Relative imports: `from . import sibling`, `from ..package import name`.",
+      "condition": "A relative import has at most one leading dot. Imports from parent packages use the absolute module path.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "ImportFrom"
+        ],
+        "attribute": "level"
+      }
+    },
+    {
+      "id": "SP702",
+      "slug": "typed-except-handlers",
+      "status": "restricted",
+      "construct": "An `except` clause: `except ValueError as error:`.",
+      "condition": "Every `except` clause names the exception type or types it handles. A bare `except:` is not permitted.",
+      "replacement": null,
+      "anchor": {
+        "nodes": [
+          "ExceptHandler"
+        ]
+      }
+    },
+    {
+      "id": "SP703",
+      "slug": "no-except-star",
+      "status": "banned",
+      "construct": "The `try` statement with `except*` clauses for exception groups.",
+      "condition": null,
+      "replacement": "Catch the `ExceptionGroup` with a normal `except` clause and inspect its `exceptions` attribute explicitly.",
+      "anchor": {
+        "nodes": [
+          "TryStar"
+        ]
+      }
+    },
+    {
+      "id": "SP801",
+      "slug": "no-async",
+      "status": "banned",
+      "construct": "Coroutines and asynchronous statements: `async def`, `await`, `async for`, `async with`.",
+      "condition": null,
+      "replacement": "Write synchronous code. If concurrency is necessary, keep it outside code that must conform to the subset until async rules exist.",
+      "anchor": {
+        "nodes": [
+          "AsyncFunctionDef",
+          "Await",
+          "AsyncFor",
+          "AsyncWith"
+        ]
+      }
+    },
+    {
+      "id": "SP802",
+      "slug": "no-async-comprehension",
+      "status": "banned",
+      "construct": "An `async for` clause in a comprehension: `[x async for x in stream]`.",
+      "condition": null,
+      "replacement": "Write synchronous code; see SP801.",
+      "anchor": {
+        "nodes": [
+          "comprehension"
+        ],
+        "attribute": "is_async"
+      }
+    }
+  ]
+}

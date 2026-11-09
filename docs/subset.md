@@ -8,7 +8,7 @@
 > [!WARNING]
 > **Experimental pre-release.** The subset is still being defined and is not ready for general use.
 > Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,
-> and no checker exists yet to enforce the rules on real code.
+> and the checker enforces only the banned rules; restricted conditions still rely on human review.
 
 Rule-set version **1**, defining a subset of the **Python 3.14** grammar.
 

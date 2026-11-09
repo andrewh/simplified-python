@@ -15,6 +15,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from simplified_python.check import Anchor, find_constructs
+
 STATUSES = ("allowed", "restricted", "banned")
 EXCLUSION_CATEGORIES = ("deprecated-placeholder", "alternate-parse-root", "opt-in-parse-flag")
 RULE_ID = re.compile(r"SP\d{3}")
@@ -23,17 +25,6 @@ SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 DEFAULT_ROOT = Path(__file__).resolve().parents[2] / "subset"
 
 STR, INT, STR_LIST, TABLE, SCALAR = "string", "integer", "list of strings", "table", "string, integer or boolean"
-
-
-@dataclass(frozen=True)
-class Anchor:
-    nodes: tuple[str, ...]
-    attribute: str | None = None
-    value: str | int | bool | None = None
-
-    @property
-    def narrowed(self) -> bool:
-        return self.attribute is not None
 
 
 @dataclass(frozen=True)
@@ -137,15 +128,7 @@ def grammar_leaves() -> dict[str, type[ast.AST]]:
 
 def contains_construct(tree: ast.AST, anchor: Anchor) -> bool:
     """Whether ``tree`` contains the construct ``anchor`` describes."""
-    for node in ast.walk(tree):
-        if type(node).__name__ not in anchor.nodes:
-            continue
-        if not anchor.narrowed:
-            return True
-        attr = getattr(node, anchor.attribute, None)
-        if (attr == anchor.value) if anchor.value is not None else bool(attr):
-            return True
-    return False
+    return next(find_constructs(tree, anchor), None) is not None
 
 
 def parse_example(code: str) -> ast.Module:

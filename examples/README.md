@@ -10,6 +10,6 @@ Small, runnable programs written in the simplified Python subset. Each one runs 
 | [`rewrite/before.py`](rewrite/before.py) | the same grade report in full Python: **does not conform**, and each violation is marked with its rule |
 | [`rewrite/after.py`](rewrite/after.py) | that grade report rewritten in the subset, with identical output |
 
-`tests/test_examples.py` checks that every example runs, and that the conforming examples contain no banned construct. It also checks that `before.py` and `after.py` print the same output. Conditions on restricted rules are still prose until a checker exists, so the examples are reviewed by hand against them.
+`tests/test_examples.py` checks that every example runs, and that the conforming examples contain no banned construct. It also checks that `before.py` and `after.py` print the same output. The checker, `skills/simplified-python/check.py`, flags banned constructs only. Conditions on restricted rules are still prose, so the examples are reviewed by hand against them.
 
 Example files in this directory must conform to the subset. The exception is `rewrite/before.py`.

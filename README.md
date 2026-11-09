@@ -3,7 +3,7 @@
 > [!WARNING]
 > **Experimental pre-release.** The subset is still being defined and is not ready for general use.
 > Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,
-> and no checker exists yet to enforce the rules on real code.
+> and the checker enforces only the banned rules; restricted conditions still rely on human review.
 
 A simplified subset of Python that is easy for humans to review.
 
@@ -50,6 +50,17 @@ Rule-set version 1 classifies every construct in the Python 3.14 grammar with 58
 - [SP702](docs/subset.md#sp702) `typed-except-handlers`: An `except` clause: `except ValueError as error:`. *Condition:* Every `except` clause names the exception type or types it handles. A bare `except:` is not permitted.
 <!-- END GENERATED SUBSET SUMMARY -->
 
+## Checking code and teaching agents
+
+The checker reports every banned construct with its file, line, column, rule and replacement. It exits 1 if it finds any. It does not verify the conditions on restricted rules, so those still need review. List them with `--restricted`.
+
+```sh
+uv run --python 3.14 skills/simplified-python/check.py src/    # files or directories
+uv run --python 3.14 skills/simplified-python/check.py --restricted app.py
+```
+
+[`skills/simplified-python/`](skills/simplified-python/) is an agent skill that tells a model to write in the subset. It holds a digest of the banned and restricted rules, the full reference, a before/after example, and the checker, so the directory is self-contained. Copy or symlink it into your agent's skills directory, for example `~/.agents/skills/simplified-python`. It is generated from the registry, so do not edit it by hand.
+
 ## Development
 
 Uses [uv](https://docs.astral.sh/uv/). uv installs Python 3.14 (pinned in `.python-version`) and the locked dependencies itself.
@@ -58,6 +69,7 @@ Uses [uv](https://docs.astral.sh/uv/). uv installs Python 3.14 (pinned in `.pyth
 uv sync                                                 # create .venv and install dependencies
 uv run python -m simplified_python.registry --check     # validate the registry
 uv run python -m simplified_python.reference            # regenerate docs/subset.md and the README summary
+uv run python -m simplified_python.skill                # regenerate skills/simplified-python/
 uv run pytest                                           # run the tests
 uv run examples/inventory.py                            # run an example
 ```
