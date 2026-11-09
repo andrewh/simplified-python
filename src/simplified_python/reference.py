@@ -1,0 +1,188 @@
+"""Generate docs/subset.md from the rule registry.
+
+The document is never edited by hand: change the registry under subset/ and
+run ``python -m simplified_python.reference`` to regenerate it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from simplified_python.registry import DEFAULT_ROOT, Registry, Rule, _validate, format_errors
+
+COMMAND = "python -m simplified_python.reference"
+DEFAULT_OUTPUT = DEFAULT_ROOT.parent / "docs" / "subset.md"
+DEFAULT_README = DEFAULT_ROOT.parent / "README.md"
+SUMMARY_BEGIN = "<!-- BEGIN GENERATED SUBSET SUMMARY -->"
+SUMMARY_END = "<!-- END GENERATED SUBSET SUMMARY -->"
+PRERELEASE_NOTICE = (
+    "> [!WARNING]",
+    "> **Experimental pre-release.** The subset is still being defined and is not ready for general use.",
+    "> Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,",
+    "> and no checker exists yet to enforce the rules on real code.",
+)
+
+
+def anchor_id(identifier: str) -> str:
+    """In-document anchor for a rule or principle, derived from its identifier alone."""
+    return identifier.lower()
+
+
+def render(registry: Registry) -> str:
+    out: list[str] = [
+        "<!-- GENERATED FILE: do not edit. Regenerate with "
+        f"`{COMMAND}`; edit the rules in `subset/`. -->",
+        "",
+        "# The Simplified Python Subset",
+        "",
+        f"> **Generated file — do not edit.** This reference is generated from the rule registry in `subset/` by `{COMMAND}`.",
+        "> To change a rule, edit the registry and regenerate this file.",
+        "",
+        *PRERELEASE_NOTICE,
+        "",
+        f"Rule-set version **{registry.ruleset_version}**, defining a subset of the **Python {registry.python_version}** grammar.",
+        "",
+        "Every program that conforms to the subset is an ordinary Python program with unchanged behaviour. "
+        "The subset only removes or narrows constructs. Each construct has one of three statuses:",
+        "",
+        "- **allowed**: the construct may be used without conditions.",
+        "- **restricted**: the construct may be used only when the stated condition holds.",
+        "- **banned**: the construct must not appear. The entry gives the sanctioned alternative.",
+        "",
+        "## Principles",
+        "",
+        "Every restricted or banned rule cites at least one of these principles.",
+        "",
+    ]
+    for principle in registry.principles:
+        out += [
+            f'<a id="{anchor_id(principle.id)}"></a>',
+            "",
+            f"### {principle.id} · {principle.name}",
+            "",
+            principle.statement,
+            "",
+            f"*Review cost addressed:* {principle.cost}",
+            "",
+        ]
+
+    out += ["## Rule index", "", "| Rule | Slug | Status |", "|---|---|---|"]
+    for category in registry.categories:
+        for rule in registry.rules_in(category.name):
+            out.append(f"| [{rule.id}](#{anchor_id(rule.id)}) | `{rule.slug}` | {rule.status} |")
+    out.append("")
+
+    for category in registry.categories:
+        out += [f"## {category.title}", ""]
+        for rule in registry.rules_in(category.name):
+            out += _entry(registry, rule)
+    return "\n".join(out).rstrip("\n") + "\n"
+
+
+def _entry(registry: Registry, rule: Rule) -> list[str]:
+    lines = [
+        f'<a id="{anchor_id(rule.id)}"></a>',
+        "",
+        f"### {rule.id} · {rule.slug}",
+        "",
+        f"**Status:** {rule.status}",
+        "",
+        f"**Construct:** {rule.construct}",
+        "",
+    ]
+    if rule.condition is not None:
+        lines += [f"**Condition:** {rule.condition}", ""]
+    lines += [f"**Rationale:** {rule.rationale}", ""]
+    if rule.principles:
+        cited = ", ".join(f"[{p} · {registry.principle(p).name}](#{anchor_id(p)})" for p in rule.principles)
+        lines += [f"**Principles:** {cited}", ""]
+    if rule.status == "banned":
+        lines += _examples("Violating", rule.violating)
+        lines += [f"**Instead:** {rule.replacement}", ""]
+        lines += _examples("Compliant", rule.compliant)
+    else:
+        lines += _examples("Compliant", rule.compliant)
+        lines += _examples("Violating", rule.violating)
+    return lines
+
+
+def _examples(label: str, snippets: tuple[str, ...]) -> list[str]:
+    lines: list[str] = []
+    for code in snippets:
+        body = code if code.endswith("\n") else code + "\n"
+        lines += [f"{label}:", "", "```python", body.rstrip("\n"), "```", ""]
+    return lines
+
+
+def render_summary(registry: Registry, reference: str = "docs/subset.md") -> str:
+    """Compact summary of the banned and restricted rules, for README.md."""
+    rules = [rule for category in registry.categories for rule in registry.rules_in(category.name)]
+    allowed = sum(rule.status == "allowed" for rule in rules)
+    out = [
+        f"<!-- Generated by `{COMMAND}` from `subset/`. Do not edit between these markers. -->",
+        "",
+        f"Rule-set version {registry.ruleset_version} classifies every construct in the Python {registry.python_version} grammar "
+        f"with {len(rules)} rules. {allowed} constructs are allowed without conditions. "
+        f"The rules below narrow Python. Each one links to its full entry, with rationale and examples, in [`{reference}`]({reference}).",
+    ]
+    for status, heading, detail in (("banned", "Banned", "replacement"), ("restricted", "Restricted", "condition")):
+        out += ["", f"### {heading}", ""]
+        for rule in rules:
+            if rule.status == status:
+                text = getattr(rule, detail)
+                label = "Instead" if status == "banned" else "Condition"
+                out.append(f"- [{rule.id}]({reference}#{anchor_id(rule.id)}) `{rule.slug}`: {rule.construct} *{label}:* {text}")
+    return "\n".join(out) + "\n"
+
+
+def splice_summary(readme: str, summary: str) -> str:
+    """Replace the text between the summary markers in ``readme``."""
+    begin, end = readme.find(SUMMARY_BEGIN), readme.find(SUMMARY_END)
+    if begin == -1 or end < begin:
+        raise ValueError(f"README.md must contain {SUMMARY_BEGIN} followed by {SUMMARY_END}")
+    return readme[: begin + len(SUMMARY_BEGIN)] + "\n" + summary + readme[end:]
+
+
+def generate(root: Path = DEFAULT_ROOT) -> tuple[str | None, str]:
+    """Return ``(document, "")`` for a valid registry or ``(None, errors)`` otherwise."""
+    registry, errors = _validate(root, None)
+    if errors:
+        return None, format_errors(errors)
+    return render(registry), ""
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog=COMMAND, description=__doc__)
+    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="registry directory (default: subset/)")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="document to write (default: docs/subset.md)")
+    parser.add_argument("--readme", type=Path, default=DEFAULT_README, help="README whose summary block to update (default: README.md)")
+    parser.add_argument("--check", action="store_true", help="fail if the outputs are out of date instead of writing them")
+    args = parser.parse_args(argv)
+    registry, errors = _validate(args.root, None)
+    if errors:
+        print(f"{format_errors(errors)}\n\nThe registry is invalid; nothing was written.", file=sys.stderr)
+        return 1
+    try:
+        readme = splice_summary(args.readme.read_text(encoding="utf-8"), render_summary(registry))
+    except (OSError, ValueError) as exc:
+        print(f"{args.readme}: {exc}", file=sys.stderr)
+        return 1
+    outputs = {args.output: render(registry), args.readme: readme}
+    if args.check:
+        stale = [path for path, text in outputs.items() if not path.exists() or path.read_text(encoding="utf-8") != text]
+        for path in stale:
+            print(f"{path} is out of date with the registry. Run `{COMMAND}` and commit the result.", file=sys.stderr)
+        if not stale:
+            print("reference and README summary are up to date")
+        return 1 if stale else 0
+    for path, text in outputs.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(text.encode("utf-8"))
+        print(f"wrote {path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
