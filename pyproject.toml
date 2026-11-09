@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simplified-python"
+version = "0.1.0"
+description = "A simplified subset of Python that is easy for humans to review"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.14"
+classifiers = ["Development Status :: 2 - Pre-Alpha"]
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
