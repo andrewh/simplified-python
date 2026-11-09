@@ -1,0 +1,5 @@
+[[principle]]
+id = "P1"
+name = "local-reasoning"
+statement = "Meaning is visible locally."
+cost = "The reviewer has to look elsewhere."

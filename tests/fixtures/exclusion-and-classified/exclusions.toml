@@ -1,0 +1,64 @@
+# AST node types that cannot appear in a tree from `ast.parse(source, mode="exec")`
+# on the target version. They are exempt from coverage. Every entry needs a reason
+# and one of these categories:
+#
+#   deprecated-placeholder  kept in `ast` for backward compatibility; never produced
+#   alternate-parse-root    produced only by a parse mode other than "exec"
+#   opt-in-parse-flag       produced only when a non-default parse flag is set
+#
+# A node type listed here must not also be anchored by any rule.
+
+[[exclusion]]
+node = "AugLoad"
+category = "deprecated-placeholder"
+reason = "Unused expression context kept for compatibility; the parser never produces it."
+
+[[exclusion]]
+node = "AugStore"
+category = "deprecated-placeholder"
+reason = "Unused expression context kept for compatibility; the parser never produces it."
+
+[[exclusion]]
+node = "Param"
+category = "deprecated-placeholder"
+reason = "Python 2 parameter context; parameters are represented by `arg` nodes."
+
+[[exclusion]]
+node = "Suite"
+category = "deprecated-placeholder"
+reason = "Unused module kind kept for compatibility; the parser never produces it."
+
+[[exclusion]]
+node = "Index"
+category = "deprecated-placeholder"
+reason = "Removed slice wrapper since Python 3.9; subscripts hold the index expression directly."
+
+[[exclusion]]
+node = "ExtSlice"
+category = "deprecated-placeholder"
+reason = "Removed slice wrapper since Python 3.9; extended slices are represented as a `Tuple`."
+
+[[exclusion]]
+node = "Interactive"
+category = "alternate-parse-root"
+reason = "Root node for `mode=\"single\"` (interactive input), never for source files."
+
+[[exclusion]]
+node = "Expression"
+category = "alternate-parse-root"
+reason = "Root node for `mode=\"eval\"`, never for source files."
+
+[[exclusion]]
+node = "FunctionType"
+category = "alternate-parse-root"
+reason = "Root node for `mode=\"func_type\"` (signature type comments), never for source files."
+
+[[exclusion]]
+node = "TypeIgnore"
+category = "opt-in-parse-flag"
+reason = "Produced only when parsing with `type_comments=True`; comments are not grammar under default parsing."
+
+[[exclusion]]
+node = "Global"
+category = "deprecated-placeholder"
+reason = "Wrongly excluded."

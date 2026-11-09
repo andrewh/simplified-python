@@ -1,0 +1,6 @@
+ids = ["SP100", "SP601"]
+
+[[retired]]
+id = "SP601"
+ruleset_version = 1
+reason = "Withdrawn."

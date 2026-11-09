@@ -1,0 +1,19 @@
+# Minimal valid registry used as the base for broken-registry fixtures.
+python_version = "3.14"
+ruleset_version = 1
+
+[[category]]
+name = "expressions"
+title = "Expressions"
+block = 1
+file = "rules/expressions.toml"
+
+[[category]]
+name = "imports"
+title = "Imports"
+block = 6
+file = "rules/imports.toml"
+
+[[changelog]]
+version = 1
+summary = "Fixture."

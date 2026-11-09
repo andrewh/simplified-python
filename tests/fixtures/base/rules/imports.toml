@@ -1,0 +1,12 @@
+[[rule]]
+id = "SP601"
+slug = "no-star-import"
+category = "imports"
+construct = "Star import."
+anchor = { nodes = ["alias"], attribute = "name", value = "*" }
+status = "banned"
+rationale = "Fixture."
+principles = ["P1"]
+replacement = "Import names explicitly."
+compliant = ["from os import path\n"]
+violating = ["from os import *\n"]
