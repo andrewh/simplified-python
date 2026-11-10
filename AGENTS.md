@@ -17,6 +17,9 @@
 - Run tests: `uv run pytest`
 - Run an example: `uv run examples/<file>.py`
 - Validate the OpenSpec change: `openspec validate <change> --strict` (from the repo root)
+- Run baseline benchmark: `uv run python benchmarks/baseline.py --samples N --profile`
+- Compare API-level performance: `uv run python benchmarks/compare.py --samples N`
+- Compare end-to-end CLI performance: `uv run python benchmarks/cli_compare.py --samples N`
 
 ## Source of truth
 

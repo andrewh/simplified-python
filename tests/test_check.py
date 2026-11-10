@@ -10,6 +10,7 @@ import pytest
 import simplified_python.check as check_module
 from simplified_python.check import Rules, check_source, load_rules, main
 from simplified_python.registry import DEFAULT_ROOT, load
+from benchmarks.legacy import check_source as check_source_legacy
 
 ROOT = DEFAULT_ROOT.parent
 EXAMPLES = ROOT / "examples"
@@ -169,3 +170,68 @@ def test_checker_imports_only_the_standard_library():
     imported = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
     imported |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
     assert imported - {"__future__"} <= set(sys.stdlib_module_names)
+
+
+def test_optimized_matches_legacy_on_all_examples(rules):
+    for path in sorted(EXAMPLES.rglob("*.py")):
+        if path != BEFORE:
+            source = path.read_text(encoding="utf-8")
+            legacy = check_source_legacy(source, rules, str(path))
+            optimized = check_source(source, rules, str(path))
+            assert legacy == optimized, f"Mismatch on {path}"
+
+
+def test_optimized_matches_legacy_on_before_example(rules):
+    source = BEFORE.read_text(encoding="utf-8")
+    legacy = check_source_legacy(source, rules, str(BEFORE))
+    optimized = check_source(source, rules, str(BEFORE))
+    assert legacy == optimized
+
+
+def test_optimized_matches_legacy_on_violating_examples(rules):
+    for rule in BANNED:
+        for code in rule.violating:
+            legacy = check_source_legacy(code, rules)
+            optimized = check_source(code, rules)
+            assert legacy == optimized, f"Mismatch on {rule.id} violating example"
+
+
+def test_optimized_matches_legacy_on_compliant_examples(rules):
+    for rule in BANNED:
+        for code in rule.compliant:
+            legacy = check_source_legacy(code, rules)
+            optimized = check_source(code, rules)
+            assert legacy == optimized, f"Mismatch on {rule.id} compliant example"
+
+
+def test_optimized_matches_legacy_restricted_mode(rules):
+    code = "f = lambda x: x\n"
+    legacy = check_source_legacy(code, rules, restricted=True)
+    optimized = check_source(code, rules, restricted=True)
+    assert legacy == optimized
+
+
+def test_optimized_preserves_order_and_deduplication(rules):
+    source = "from a import *\nx = 1\nfrom b import *\nfrom c import *\n"
+    legacy = check_source_legacy(source, rules)
+    optimized = check_source(source, rules)
+    assert legacy == optimized
+    assert [(f.line, f.column) for f in optimized] == [(f.line, f.column) for f in legacy]
+
+
+def test_optimized_handles_nodes_without_position(rules):
+    rule = check_module.CheckRule("SPX", "x", "banned", "c", check_module.Anchor(("Store",)), replacement="r")
+    custom_rules = Rules(1, "3.14", (rule,))
+    source = "\n\nx = 1\n"
+    legacy = check_source_legacy(source, custom_rules)
+    optimized = check_source(source, custom_rules)
+    assert legacy == optimized
+    assert len(optimized) == 1
+    assert optimized[0].line == 3 and optimized[0].column == 1
+
+
+def test_optimized_narrowed_anchor_matching(rules):
+    source = "x = 1\ny: int = 2\n"
+    legacy = check_source_legacy(source, rules)
+    optimized = check_source(source, rules)
+    assert legacy == optimized

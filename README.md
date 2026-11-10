@@ -61,6 +61,8 @@ uv run --python 3.14 skills/simplified-python/check.py --restricted app.py
 
 [`skills/simplified-python/`](skills/simplified-python/) is an agent skill that tells a model to write in the subset. It holds a digest of the banned and restricted rules, the full reference, a before/after example, and the checker, so the directory is self-contained. Copy or symlink it into your agent's skills directory, for example `~/.agents/skills/simplified-python`. It is generated from the registry, so do not edit it by hand.
 
+See [How the checker works](docs/checker.md) for the single-pass rule index, matching semantics, performance results and reproducible benchmark commands.
+
 ## Development
 
 Uses [uv](https://docs.astral.sh/uv/). uv installs Python 3.14 (pinned in `.python-version`) and the locked dependencies itself.

@@ -105,20 +105,47 @@ def load_rules(path: Path) -> Rules:
     return Rules(data["ruleset_version"], data["python_version"], rules)
 
 
-def check_source(source: str, rules: Rules, path: str = "<string>", restricted: bool = False) -> list[Finding]:
-    """Findings for ``source``, sorted by position. Raises ``SyntaxError`` if it does not parse."""
-    tree = ast.parse(source, filename=path)
+def _build_rule_index(rules: Rules, restricted: bool) -> dict[str, list[tuple[CheckRule, str]]]:
     wanted = ("banned", "restricted") if restricted else ("banned",)
-    findings: set[Finding] = set()
+    index: dict[str, list[tuple[CheckRule, str]]] = {}
     for rule in rules.rules:
         if rule.status not in wanted:
             continue
         text = f"{rule.construct} Instead: {rule.replacement}" if rule.status == "banned" else (
             f"{rule.construct} Condition: {rule.condition} (not checked; verify by hand)"
         )
-        for _, line, column in find_constructs(tree, rule.anchor):
-            findings.add(Finding(path, line, column, rule.id, rule.slug, rule.status, text))
+        for node_type in rule.anchor.nodes:
+            index.setdefault(node_type, []).append((rule, text))
+    return index
+
+
+def _check_tree(tree: ast.AST, path: str, rule_index: dict[str, list[tuple[CheckRule, str]]]) -> list[Finding]:
+    findings: set[Finding] = set()
+    stack: list[tuple[ast.AST, int, int]] = [(tree, 1, 1)]
+    while stack:
+        node, line, column = stack.pop()
+        if hasattr(node, "lineno"):
+            line, column = node.lineno, node.col_offset + 1
+        stack.extend((child, line, column) for child in ast.iter_child_nodes(node))
+        node_type = type(node).__name__
+        if node_type not in rule_index:
+            continue
+        for rule, text in rule_index[node_type]:
+            if not rule.anchor.narrowed:
+                findings.add(Finding(path, line, column, rule.id, rule.slug, rule.status, text))
+                continue
+            attr = getattr(node, rule.anchor.attribute, None)
+            if (attr == rule.anchor.value) if rule.anchor.value is not None else bool(attr):
+                findings.add(Finding(path, line, column, rule.id, rule.slug, rule.status, text))
     return sorted(findings)
+
+
+def check_source(source: str, rules: Rules, path: str = "<string>", restricted: bool = False, rule_index: dict[str, list[tuple[CheckRule, str]]] | None = None) -> list[Finding]:
+    """Findings for ``source``, sorted by position. Raises ``SyntaxError`` if it does not parse."""
+    tree = ast.parse(source, filename=path)
+    if rule_index is None:
+        rule_index = _build_rule_index(rules, restricted)
+    return _check_tree(tree, path, rule_index)
 
 
 def python_files(paths: list[Path]) -> list[Path]:
@@ -154,12 +181,15 @@ def main(argv: list[str] | None = None, interpreter: str | None = None) -> int:
         )
         return 2
 
+    rule_index = _build_rule_index(rules, args.restricted)
     findings: list[Finding] = []
     problems = 0
     files = python_files(args.paths)
     for path in files:
         try:
-            findings += check_source(path.read_text(encoding="utf-8"), rules, str(path), args.restricted)
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(path))
+            findings += _check_tree(tree, str(path), rule_index)
         except (OSError, UnicodeDecodeError) as exc:
             print(f"{path}: cannot read: {exc}", file=sys.stderr)
             problems += 1
