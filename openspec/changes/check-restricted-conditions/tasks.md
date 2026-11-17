@@ -2,7 +2,8 @@
 
 ## 1. Checker
 
-- [x] 1.1 Add `CONDITIONS` to `check.py`: predicates for SP110, SP114, SP117, SP203, SP503, SP603, and SP702
+- [x] 1.1 Add `CONDITIONS` to `check.py`: predicates for SP110, SP114, SP116, SP117, SP203, SP406, SP407, SP503, SP603, and SP702, each given the matched node and its parent
+- [x] 1.1a Report one SP114 error per nested conditional chain
 - [x] 1.2 Report a broken checked condition as an error with status `violated`, and exit 1 on it
 - [x] 1.3 Stop listing restricted constructs whose condition is checked; keep `--restricted` for the rest
 - [x] 1.4 Tests: each checked rule's violating examples fail and compliant ones pass, edge cases for each predicate, CLI exit status, `before.py` breaks exactly the checkable rules its comments cite, legacy-baseline parity for unchanged rules

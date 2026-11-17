@@ -88,9 +88,9 @@ def test_nodes_without_position_inherit_the_enclosing_one(rules):
 
 
 def test_restricted_are_hidden_by_default_and_listed_on_request(rules):
-    code = "f = lambda x: x\n"
+    code = "first, *rest = items\n"
     assert check_source(code, rules) == []
-    finding = next(f for f in check_source(code, rules, restricted=True) if f.slug == "lambda-as-argument")
+    finding = next(f for f in check_source(code, rules, restricted=True) if f.slug == "starred-unpacking")
     assert finding.status == "restricted" and "not checked" in finding.message
 
 
@@ -113,7 +113,7 @@ def test_cli_exit_codes(rules_file, tmp_path, capsys):
 
 def test_cli_restricted_does_not_change_exit_status(rules_file, tmp_path, capsys):
     path = tmp_path / "lam.py"
-    path.write_text("f = lambda x: x\n")
+    path.write_text("first, *rest = items\n")
     assert main([str(path), "--restricted", "--rules", str(rules_file)]) == 0
     assert "review SP" in capsys.readouterr().out
     assert main([str(path), "--rules", str(rules_file)]) == 0
@@ -154,7 +154,7 @@ def test_before_example_breaks_exactly_the_cited_rules(rules):
     cited = {rule_id for comment in comments for rule_id in re.findall(r"SP\d{3}", comment)}
     checkable = {rule.id for rule in BANNED} | set(CONDITIONS)
     assert ids(check_source(source, rules, str(BEFORE))) == cited & checkable
-    assert cited - checkable == {"SP115", "SP116"}
+    assert cited - checkable == {"SP115"}
 
 
 def test_conditions_name_restricted_rules():
@@ -184,6 +184,20 @@ def test_checked_condition_passes_compliant_examples(rule, rules):
         ("v = [x for x in xs if x if x > 1]\n", "SP117"),
         ("v = [[y for y in x] for x in xs]\n", "SP117"),
         ("v = sum(x for x in {y for y in ys})\n", "SP117"),
+        ("f = lambda x: x\n", "SP116"),
+        ("v = (lambda x: x)(1)\n", "SP116"),
+        ("v = [lambda: 1]\n", "SP116"),
+        ("def f(*args):\n    return args[0]\n", "SP406"),
+        ("def f(*args):\n    pass\n", "SP406"),
+        ("def f(*args):\n    g(*args)\n    h(*args)\n", "SP406"),
+        ("def f(*args):\n    g(args)\n", "SP406"),
+        ("def f(*args):\n    args = ()\n    g(*args)\n", "SP406"),
+        ("def f(*args):\n    g(*args, *args)\n", "SP406"),
+        ("h = g(lambda *a: a)\n", "SP406"),
+        ("def f(**kwargs):\n    return kwargs.get('x')\n", "SP407"),
+        ("def f(**kwargs):\n    pass\n", "SP407"),
+        ("def f(**kwargs):\n    g(**kwargs)\n    h(**kwargs)\n", "SP407"),
+        ("def f(**kwargs):\n    g(options=kwargs)\n", "SP407"),
         ("a = b = 0\n", "SP203"),
         ("class C(A, B):\n    pass\n", "SP503"),
         ("from ..pkg import name\n", "SP603"),
@@ -208,6 +222,15 @@ def test_broken_condition_is_an_error(code, rule_id, rules):
         "class C:\n    pass\n",
         "from .pkg import name\n",
         "try:\n    pass\nexcept (ValueError, TypeError):\n    pass\n",
+        "v = sorted(xs, key=lambda x: x.size)\n",
+        "v = map(lambda x: x + 1, xs)\n",
+        "def f(message, *args):\n    return log(message, *args)\n",
+        "def f(*args):\n    return g(1, *args, key=2)\n",
+        "async def f(*args):\n    return g(*args)\n",
+        "h = g(lambda *a: k(*a))\n",
+        "def f(url, **kwargs):\n    return Client(url, **kwargs)\n",
+        "def f(*args, **kwargs):\n    return g(*args, **kwargs)\n",
+        "def f(*rest, **options):\n    return g(*rest, **options)\n",
     ],
 )
 def test_met_condition_is_not_reported_even_for_review(code, rules):
@@ -215,9 +238,17 @@ def test_met_condition_is_not_reported_even_for_review(code, rules):
     assert checked == set()
 
 
-def test_each_conditional_containing_another_is_flagged(rules):
-    findings = [f for f in check_source("v = a if b else c if d else e if f else g\n", rules) if f.rule_id == "SP114"]
-    assert [f.column for f in findings] == [5, 17]
+@pytest.mark.parametrize(
+    ("code", "columns"),
+    [
+        ("v = a if b else c if d else e if f else g\n", [5]),
+        ("v = (a if b else c) if d else (e if f else g)\n", [5]),
+        ("v = [a if b else c if d else e, f if g else h if i else j]\n", [6, 33]),
+    ],
+)
+def test_one_error_per_nested_conditional_chain(code, columns, rules):
+    findings = [f for f in check_source(code, rules) if f.rule_id == "SP114"]
+    assert [f.column for f in findings] == columns
 
 
 def test_cli_fails_on_broken_condition(rules_file, tmp_path, capsys):
@@ -288,7 +319,7 @@ def test_optimized_matches_legacy_on_compliant_examples(rules):
 
 
 def test_optimized_matches_legacy_restricted_mode(rules):
-    code = "f = lambda x: x\n"
+    code = "first, *rest = items\n"
     legacy = check_source_legacy(code, rules, restricted=True)
     optimized = check_source(code, rules, restricted=True)
     assert unconditioned(legacy) == unconditioned(optimized)

@@ -427,7 +427,7 @@ first, *rest = items
 
 **Condition:** A lambda is permitted only as a direct argument of a call, such as `sorted(items, key=lambda item: item.size)`.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
 **Rationale:** As a short argument, a lambda keeps a one-line function next to the call that uses it. A lambda stored in a name or a data structure is a function without a name: it cannot be found by searching, cannot be tested directly, and shows no name in tracebacks. Use `def` for it.
 
@@ -947,7 +947,7 @@ def fetch(url):
 
 **Condition:** A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
 **Rationale:** `*args` hides the parameters a function takes. The reader must find every caller to learn what is passed. Forwarding to one call is the one use where the target function documents the real parameters.
 
@@ -977,7 +977,7 @@ def area(*args):
 
 **Condition:** A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
 **Rationale:** `**kwargs` hides which options a function accepts. Lookups such as `kwargs.get("timeout")` scatter the real parameter list through the body. Forwarding to one call is the one use where the target function documents the real parameters.
 

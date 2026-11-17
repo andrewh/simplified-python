@@ -12,6 +12,15 @@ The checker SHALL verify the condition of each restricted rule it lists as check
 - **WHEN** the checker runs on a file containing `x, y = point`
 - **THEN** it reports nothing for the single-target-assignment rule, with or without `--restricted`
 
+#### Scenario: Nested conditional chain
+- **WHEN** the checker runs on `v = a if b else c if d else e if f else g`
+- **THEN** it reports one error for the flat-conditional-expression rule, at the outermost conditional expression
+
+#### Scenario: Forwarded variadic arguments
+- **WHEN** a function declares `*args` or `**kwargs` and its body uses the name exactly once, as `*args` or `**kwargs` in a call
+- **THEN** the checker reports nothing for the forwarding rule
+- **AND** any other use, a second use, or no use is reported as an error
+
 #### Scenario: Violating examples of checked rules are flagged
 - **WHEN** the checker runs on each violating example of a restricted rule whose condition it checks
 - **THEN** it reports that rule as an error
@@ -22,8 +31,8 @@ The checker SHALL verify the condition of each restricted rule it lists as check
 The checker SHALL NOT fail on restricted constructs whose condition it does not check. With `--restricted` it SHALL list each occurrence of such a construct with the rule's condition, as an item for manual review. Output SHALL state how many restricted conditions are not checked.
 
 #### Scenario: Restricted listing is requested
-- **WHEN** the checker runs with `--restricted` on a file using a lambda
-- **THEN** the lambda is listed with its rule's condition and labelled as needing manual review
+- **WHEN** the checker runs with `--restricted` on a file using starred unpacking
+- **THEN** the starred target is listed with its rule's condition and labelled as needing manual review
 - **AND** the exit status is unaffected by it
 
 #### Scenario: Restricted listing is not requested

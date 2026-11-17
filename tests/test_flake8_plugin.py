@@ -73,10 +73,10 @@ def test_flake8_loads_the_plugin_and_honours_noqa(tmp_path):
 
 
 def test_flake8_restricted_option(tmp_path):
-    source = "f = lambda x: x\n"
+    source = "first, *rest = items\n"
     assert run_flake8(tmp_path, source).returncode == 0
     result = run_flake8(tmp_path, source, "--sp-restricted")
-    assert "SP116" in result.stdout
+    assert "SP115" in result.stdout
 
 
 def test_flake8_reports_broken_condition_by_default(tmp_path):
