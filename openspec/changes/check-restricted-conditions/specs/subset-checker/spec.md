@@ -31,8 +31,8 @@ The checker SHALL verify the condition of each restricted rule it lists as check
 The checker SHALL NOT fail on restricted constructs whose condition it does not check. With `--restricted` it SHALL list each occurrence of such a construct with the rule's condition, as an item for manual review. Output SHALL state how many restricted conditions are not checked.
 
 #### Scenario: Restricted listing is requested
-- **WHEN** the checker runs with `--restricted` on a file using starred unpacking
-- **THEN** the starred target is listed with its rule's condition and labelled as needing manual review
+- **WHEN** the checker runs with `--restricted` on a file using a decorated function
+- **THEN** the decorator is listed with its rule's condition and labelled as needing manual review
 - **AND** the exit status is unaffected by it
 
 #### Scenario: Restricted listing is not requested

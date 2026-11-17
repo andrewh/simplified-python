@@ -6,14 +6,14 @@
 
 ## What Changes
 
-- **Condition checks for ten restricted rules.** The checker verifies the conditions of SP110 `single-comparison`, SP114 `flat-conditional-expression`, SP116 `lambda-as-argument`, SP117 `simple-comprehensions`, SP203 `single-target-assignment`, SP406 `forwarding-varargs`, SP407 `forwarding-kwargs`, SP503 `single-base-class`, SP603 `shallow-relative-imports`, and SP702 `typed-except-handlers`. An occurrence that breaks the condition is an error, reported with the condition, and fails the run like a banned construct. An occurrence that meets it is verified and is not listed for review. Each check sees the matched node and its parent, which SP116 needs to see the enclosing call, and SP406 and SP407 need to see the function body.
+- **Condition checks for eleven restricted rules.** The checker verifies the conditions of SP110 `single-comparison`, SP114 `flat-conditional-expression`, SP115 `starred-unpacking`, SP116 `lambda-as-argument`, SP117 `simple-comprehensions`, SP203 `single-target-assignment`, SP406 `forwarding-varargs`, SP407 `forwarding-kwargs`, SP503 `single-base-class`, SP603 `shallow-relative-imports`, and SP702 `typed-except-handlers`. An occurrence that breaks the condition is an error, reported with the condition, and fails the run like a banned construct. An occurrence that meets it is verified and is not listed for review. Each check sees the matched node and its parent, which SP116 needs to see the enclosing call, and SP406 and SP407 need to see the function body.
 - **One error per nested conditional chain.** SP114 reports the outermost conditional expression of a chain such as `a if b else c if d else e`. A conditional nested directly in another is judged as part of the outer one.
 - **Forwarding means exactly one use.** For SP406 and SP407, the parameter name must appear exactly once in the body, as `*args` or `**kwargs` in a call. A function that never uses the parameter breaks the condition, as does one that rebinds it.
 - **Unchecked restricted rules stay review items.** The other restricted rules keep their current behaviour: listed only with `--restricted`, never failing the run.
 - **Documentation marks checked conditions.** The reference states for each restricted rule whether the checker verifies its condition. The README summary and the skill digest label checked conditions *Condition (checked)*. The pre-release notice and the skill workflow describe the new scope.
 - **flake8 plugin.** The prototype plugin shares the checker's logic, so it reports broken conditions by default too.
 
-Explicitly **not** in this change: conditions that need further analysis or an agreed allowlist (SP115, SP405, SP408, SP504), registry schema changes, and autofix.
+Explicitly **not** in this change: conditions that need further analysis or an agreed allowlist (SP405, SP408, SP504), registry schema changes, and autofix.
 
 ## Capabilities
 
@@ -24,7 +24,7 @@ Explicitly **not** in this change: conditions that need further analysis or an a
 
 ## Impact
 
-- **Behaviour:** code that passed the checker before can now fail it. `examples/rewrite/before.py` now also fails SP110, SP114, SP116, and SP702, which its comments already cited. Every conforming example still passes.
+- **Behaviour:** code that passed the checker before can now fail it. `examples/rewrite/before.py` now also fails SP110, SP114, SP115, SP116, and SP702, which its comments already cited. Every conforming example still passes.
 - **Code:** `CONDITIONS` in `src/simplified_python/check.py` maps rule identifiers to predicates. `check.py` stays standard-library only.
 - **Generated files:** `docs/subset.md`, the README summary, and `skills/simplified-python/` are regenerated.
 - **Ruleset version:** unchanged. No rule is added or removed, and no status changes.

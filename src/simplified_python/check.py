@@ -201,6 +201,7 @@ def _simple_comprehension(node: ast.AST, parent: ast.AST | None) -> bool:
 CONDITIONS: dict[str, Callable[[ast.AST, ast.AST | None], bool]] = {
     "SP110": lambda node, parent: len(node.ops) == 1,
     "SP114": _flat_conditional,
+    "SP115": lambda node, parent: isinstance(node.ctx, ast.Load) and isinstance(parent, (ast.Call, ast.List, ast.Tuple, ast.Set)),
     "SP116": _lambda_as_argument,
     "SP117": _simple_comprehension,
     "SP203": lambda node, parent: len(node.targets) == 1,

@@ -6,4 +6,4 @@ The skill digest SHALL label each restricted rule whose condition the checker ve
 #### Scenario: Checked rule in the digest
 - **WHEN** the skill is generated
 - **THEN** the entry for single-target-assignment is labelled *Condition (checked)*
-- **AND** the entry for starred-unpacking is labelled *Condition*
+- **AND** the entry for function-decorator-allowlist is labelled *Condition*

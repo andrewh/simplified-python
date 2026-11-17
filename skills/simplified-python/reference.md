@@ -397,7 +397,7 @@ label = "high" if level > 2 else "mid" if level > 1 else "low"
 
 **Condition:** A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
 **Rationale:** Unpacking into a call or display shows where the values go. A starred target splits a sequence by position, and the reader must count the other targets to know what each name holds. Indexing or slicing says it directly.
 
