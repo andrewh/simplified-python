@@ -5,11 +5,12 @@ The checker uses CPython's Python 3.14 AST and a generated rules snapshot. It do
 ## From rules to findings
 
 1. **Load the snapshot.** `rules.json` contains the registry's banned and restricted rules, including their AST anchors, replacement guidance and conditions. The CLI refuses to check files if its interpreter's Python minor version differs from the snapshot's version.
-2. **Build an index once.** `_build_rule_index` selects banned rules by default, or banned and restricted rules with `--restricted`. It groups them by AST class name and prepares their diagnostic text. A rule covering several node types appears under each type. The CLI reuses this index across all files in the invocation.
+2. **Build an index once.** `_build_rule_index` selects banned rules and the restricted rules whose condition has a check in `CONDITIONS`. With `--restricted`, it also selects the other restricted rules, as review items. It groups them by AST class name and prepares their diagnostic text. A rule covering several node types appears under each type. The CLI reuses this index across all files in the invocation.
 3. **Parse each file once.** `ast.parse` builds the tree. Syntax and read errors are reported rather than treating the file as clean.
-4. **Walk the tree once.** `_check_tree` uses an explicit stack of `(node, line, column)` entries. It visits every child, even when the parent has no applicable rule. At each node it looks up only rules indexed under that node's class name.
+4. **Walk the tree once.** `_check_tree` uses an explicit stack of `(node, line, column, parent)` entries. It visits every child, even when the parent has no applicable rule. At each node it looks up only rules indexed under that node's class name.
 5. **Apply anchor predicates.** An unnarrowed anchor matches its node type directly. A narrowed anchor requires either equality with its declared `value`, or a truthy attribute when no value is declared. For example, the star-import rule matches an `alias` whose `name` equals `"*"`; it does not ban ordinary `from` imports.
-6. **Collect diagnostics.** Findings are deduplicated in a set and sorted before returning, so traversal order does not determine diagnostic order. Each finding includes its path, position, rule identifier, slug, status and guidance.
+6. **Apply condition checks.** For a restricted rule listed in `CONDITIONS`, a matched node is passed with its parent to the rule's check. A node that breaks the condition becomes a finding with status `violated`; a node that meets it produces no finding. Checks that need the enclosing function, such as the forwarding rules for `*args` and `**kwargs`, follow Python's scoping rules for names.
+7. **Collect diagnostics.** Findings are deduplicated in a set and sorted before returning, so traversal order does not determine diagnostic order. Each finding includes its path, position, rule identifier, slug, status and guidance.
 
 The public `check_source` API parses a string and uses the same indexed tree checker. If no index is supplied, it builds one for that call. A supplied index determines which rules are considered, so callers reusing one must build it for the intended rules and restricted mode.
 
@@ -24,10 +25,10 @@ This particularly helps large inputs and runs over many files. For a small singl
 ## Behaviour and limits
 
 - Nodes with their own AST location use it. Nodes without one, such as operators and contexts, inherit the nearest enclosing location. Reported columns are CPython's UTF-8 byte offsets plus one, not Unicode display columns.
-- The matcher retains the original equality/truthiness semantics. Regression tests compare the indexed checker with an independent legacy implementation on examples, registry snippets and position/narrowing cases.
-- The CLI comparison benchmark also verifies identical stdout, stderr and exit status against the original checker.
-- Exit status remains 0 for no banned findings, 1 for banned findings, and 2 for a checking error. Other readable files may still have been checked when one file fails.
-- `--restricted` lists anchored constructs for manual review; it does not evaluate their prose conditions and does not make them failures. A clean run is not proof of full subset conformance.
+- The matcher retains the original equality/truthiness semantics. Regression tests compare the indexed checker with an independent legacy implementation on examples, registry snippets and position/narrowing cases, for rules without condition checks.
+- The CLI comparison benchmark also verifies identical findings for rules without condition checks, identical stderr, and that each checker's exit status agrees with its own output.
+- Exit status is 0 for no findings that fail, 1 for a banned construct or a broken checked condition, and 2 for a checking error. Other readable files may still have been checked when one file fails.
+- `--restricted` lists occurrences of restricted rules without a condition check, for manual review; it does not make them failures. A clean run is not proof of full subset conformance until those have been reviewed.
 
 ## Reproducing the measurements
 
@@ -43,7 +44,7 @@ uv run python -m benchmarks --samples 5 --profile
 
 `cli_compare.py` extracts the original checker from Git revision `f60e3e5` by default, so that revision must be present in the clone. Use `--baseline-ref REV` to select another compatible baseline. Both scripts run in fresh Python subprocesses with the same current rules snapshot and identical input paths. Timings include interpreter startup, imports, file reading, parsing, matching and captured diagnostic output.
 
-It measures a representative example file, a synthetic 6,000-line file, and 100 copies of the representative example, each in default and restricted modes. It reports medians, uses at least three samples per workload, and verifies output equality. Fresh processes measure process startup, not cold operating-system disk caches.
+It measures a representative example file, a synthetic 6,000-line file, and 100 copies of the representative example, each in default and restricted modes. It reports medians, uses at least three samples per workload, and verifies that findings agree. Fresh processes measure process startup, not cold operating-system disk caches.
 
 An illustrative local run with three samples per workload produced:
 

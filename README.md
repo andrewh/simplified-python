@@ -52,12 +52,21 @@ Rule-set version 1 classifies every construct in the Python 3.14 grammar with 58
 
 ## Checking code and teaching agents
 
-The checker reports every banned construct with its file, line, column, rule and replacement. It exits 1 if it finds any. It does not verify the conditions on restricted rules, so those still need review. List them with `--restricted`.
+The checker reports every banned construct with its file, line, column, rule and replacement. It also verifies the conditions of most restricted rules and reports each occurrence that breaks one. It exits 1 if it finds either. The rule summary above marks those rules *Condition (checked)*. The other restricted rules still need review by hand; list their occurrences with `--restricted`.
 
 ```sh
 uv run --python 3.14 skills/simplified-python/check.py src/    # files or directories
 uv run --python 3.14 skills/simplified-python/check.py --restricted app.py
 ```
+
+The same checks are available as a flake8 plugin, so you can run them alongside other flake8 checks, suppress a finding with `# noqa: SP118`, and use flake8's configuration and editor integrations. Codes are the rule identifiers. The plugin reports exactly what `check.py` reports, because it reuses the checker's code.
+
+```sh
+uv run flake8 --select SP src/                          # banned constructs and broken conditions
+uv run flake8 --select SP --sp-restricted app.py        # also list unchecked restricted constructs
+```
+
+`--sp-restricted` can also be set as `sp-restricted = true` in flake8's configuration. The plugin reports `SP000` and checks nothing when flake8 runs on a Python version other than the one the rules are for. It is a prototype: it is registered when this package is installed, and it finds the rules snapshot through this repository's layout, so it works only from a checkout of this repository.
 
 [`skills/simplified-python/`](skills/simplified-python/) is an agent skill that tells a model to write in the subset. It holds a digest of the banned and restricted rules, the full reference, a before/after example, and the checker, so the directory is self-contained. Copy or symlink it into your agent's skills directory, for example `~/.agents/skills/simplified-python`. It is generated from the registry, so do not edit it by hand.
 
