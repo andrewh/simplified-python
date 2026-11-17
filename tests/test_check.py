@@ -191,6 +191,13 @@ def test_checked_condition_passes_compliant_examples(rule, rules):
         ("v = [x for x, *_ in rows]\n", "SP115"),
         ("def f(*args: *Ts):\n    return g(*args)\n", "SP115"),
         ("f = lambda x: x\n", "SP116"),
+        ("def f(x):\n    def g():\n        return x\n    return g\n", "SP408"),
+        ("def f():\n    n = 1\n    def g():\n        return n\n    return g\n", "SP408"),
+        ("def f():\n    import os\n    def g():\n        return os.sep\n    return g\n", "SP408"),
+        ("def f(x):\n    def g():\n        def h():\n            return x\n        return h\n    return g\n", "SP408"),
+        ("def f(x):\n    class C:\n        def m(self):\n            return x\n    return C\n", "SP408"),
+        ("def f():\n    def a():\n        return 1\n    def b():\n        return a()\n    return b\n", "SP408"),
+        ("def f():\n    def g(n):\n        return g(n - 1)\n    return g\n", "SP408"),
         ("v = (lambda x: x)(1)\n", "SP116"),
         ("v = [lambda: 1]\n", "SP116"),
         ("def f(*args):\n    return args[0]\n", "SP406"),
@@ -259,7 +266,12 @@ def test_broken_condition_is_an_error(code, rule_id, rules):
         "def f(*args):\n    v = [args for args in xs]\n    return g(*args)\n",
         "def f(*args):\n    class C:\n        args = 1\n    return g(*args)\n",
         "def f(*args):\n    v = sorted(xs, key=lambda args: args)\n    return g(*args)\n",
-        "def f(*args):\n    def g():\n        return h(*args)\n    return g\n",
+        "def total_size(paths):\n    def size_of(path):\n        return len(path)\n\n    return sum(size_of(path) for path in paths)\n",
+        "def f(x):\n    return x\n",
+        "def f(x):\n    def g(x):\n        return x\n    return g(1)\n",
+        "def f(x):\n    def g():\n        x = 2\n        return x\n    return g()\n",
+        "def f(x):\n    def g(y=x):\n        return y\n    return g\n",
+        "class C:\n    def m(self):\n        def helper(v):\n            return v\n        return helper(self)\n",
     ],
 )
 def test_met_condition_is_not_reported_even_for_review(code, rules):
@@ -278,6 +290,13 @@ def test_met_condition_is_not_reported_even_for_review(code, rules):
 def test_one_error_per_nested_conditional_chain(code, columns, rules):
     findings = [f for f in check_source(code, rules) if f.rule_id == "SP114"]
     assert [f.column for f in findings] == columns
+
+
+def test_forwarding_from_a_closure_is_judged_by_sp408(rules):
+    code = "def f(*args):\n    def g():\n        return h(*args)\n    return g\n"
+    findings = {f.rule_id: f for f in check_source(code, rules)}
+    assert "SP406" not in findings
+    assert (findings["SP408"].line, findings["SP408"].status) == (2, "violated")
 
 
 def test_cli_fails_on_broken_condition(rules_file, tmp_path, capsys):

@@ -6,14 +6,14 @@
 
 ## What Changes
 
-- **Condition checks for eleven restricted rules.** The checker verifies the conditions of SP110 `single-comparison`, SP114 `flat-conditional-expression`, SP115 `starred-unpacking`, SP116 `lambda-as-argument`, SP117 `simple-comprehensions`, SP203 `single-target-assignment`, SP406 `forwarding-varargs`, SP407 `forwarding-kwargs`, SP503 `single-base-class`, SP603 `shallow-relative-imports`, and SP702 `typed-except-handlers`. An occurrence that breaks the condition is an error, reported with the condition, and fails the run like a banned construct. An occurrence that meets it is verified and is not listed for review. Each check sees the matched node and its parent, which SP116 needs to see the enclosing call, and SP406 and SP407 need to see the function body.
+- **Condition checks for twelve restricted rules.** The checker verifies the conditions of SP110 `single-comparison`, SP114 `flat-conditional-expression`, SP115 `starred-unpacking`, SP116 `lambda-as-argument`, SP117 `simple-comprehensions`, SP203 `single-target-assignment`, SP406 `forwarding-varargs`, SP407 `forwarding-kwargs`, SP408 `nested-functions-without-closures`, SP503 `single-base-class`, SP603 `shallow-relative-imports`, and SP702 `typed-except-handlers`. An occurrence that breaks the condition is an error, reported with the condition, and fails the run like a banned construct. An occurrence that meets it is verified and is not listed for review. Each check sees the matched node, its parent, and its nearest enclosing function. SP116 needs the parent to see the enclosing call, SP406 and SP407 need it to see the function body, and SP408 needs the enclosing function to know which names a nested function may not use.
 - **One error per nested conditional chain.** SP114 reports the outermost conditional expression of a chain such as `a if b else c if d else e`. A conditional nested directly in another is judged as part of the outer one.
 - **Forwarding means exactly one use.** For SP406 and SP407, the parameter name must appear exactly once in the body, as `*args` or `**kwargs` in a call. A function that never uses the parameter breaks the condition, as does one that rebinds it.
 - **Unchecked restricted rules stay review items.** The other restricted rules keep their current behaviour: listed only with `--restricted`, never failing the run.
 - **Documentation marks checked conditions.** The reference states for each restricted rule whether the checker verifies its condition. The README summary and the skill digest label checked conditions *Condition (checked)*. The pre-release notice and the skill workflow describe the new scope.
 - **flake8 plugin.** The prototype plugin shares the checker's logic, so it reports broken conditions by default too.
 
-Explicitly **not** in this change: conditions that need further analysis or an agreed allowlist (SP405, SP408, SP504), registry schema changes, and autofix.
+Explicitly **not** in this change: conditions that need further analysis or an agreed allowlist (SP405, SP504), registry schema changes, and autofix.
 
 ## Capabilities
 

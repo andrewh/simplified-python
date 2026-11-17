@@ -1008,7 +1008,7 @@ def connect(**kwargs):
 
 **Condition:** A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
 **Rationale:** A nested function that captures names from its enclosing function is a closure. Its behaviour depends on state that is not in its parameter list, and that state can change after the closure is created. A nested function that captures nothing is a local helper. Its inputs are visible.
 

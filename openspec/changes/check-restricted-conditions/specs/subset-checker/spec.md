@@ -21,6 +21,11 @@ The checker SHALL verify the condition of each restricted rule it lists as check
 - **THEN** the checker reports nothing for the forwarding rule
 - **AND** any other use, a second use, or no use is reported as an error
 
+#### Scenario: Nested function uses an enclosing name
+- **WHEN** a function defined inside another function uses a parameter or local variable of the enclosing function, including another nested function or itself
+- **THEN** the checker reports an error for the nested-functions-without-closures rule at the nested function
+- **AND** a nested function that uses only its own names, globals, and builtins is not reported
+
 #### Scenario: Violating examples of checked rules are flagged
 - **WHEN** the checker runs on each violating example of a restricted rule whose condition it checks
 - **THEN** it reports that rule as an error

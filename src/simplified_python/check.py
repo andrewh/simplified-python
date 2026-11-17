@@ -101,12 +101,12 @@ def _contains(node: ast.AST, kinds: type | tuple[type, ...]) -> bool:
     return any(isinstance(inner, kinds) for inner in ast.walk(node) if inner is not node)
 
 
-def _flat_conditional(node: ast.AST, parent: ast.AST | None) -> bool:
+def _flat_conditional(node: ast.AST, parent: ast.AST | None, enclosing: ast.AST | None) -> bool:
     """One error per nested chain: a conditional directly inside another is judged with the outer one."""
     return isinstance(parent, ast.IfExp) or not _contains(node, ast.IfExp)
 
 
-def _lambda_as_argument(node: ast.AST, parent: ast.AST | None) -> bool:
+def _lambda_as_argument(node: ast.AST, parent: ast.AST | None, enclosing: ast.AST | None) -> bool:
     # A keyword's parent is a call; class keywords are banned separately (SP502).
     if isinstance(parent, ast.keyword):
         return True
@@ -145,16 +145,40 @@ def _scope_nodes(parts: list[ast.AST]) -> Iterator[ast.AST]:
         stack.extend(_scope_parts(node)[0] if isinstance(node, SCOPES) else ast.iter_child_nodes(node))
 
 
+FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _bound_name(node: ast.AST) -> str | None:
+    """The name ``node`` binds in the scope that evaluates it, if any."""
+    if isinstance(node, ast.Name):
+        return None if isinstance(node.ctx, ast.Load) else node.id
+    if isinstance(node, ast.alias):
+        return node.asname or node.name.split(".")[0]
+    if isinstance(node, ast.MatchMapping):
+        return node.rest
+    if isinstance(node, (*FUNCTIONS, ast.ClassDef, ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+        return node.name
+    return None
+
+
 def _binds(node: ast.AST, name: str) -> bool:
     """Whether ``node`` binds ``name`` in the scope that evaluates it."""
-    if isinstance(node, ast.Name):
-        return node.id == name and not isinstance(node.ctx, ast.Load)
-    if isinstance(node, ast.alias):
-        return (node.asname or node.name.split(".")[0]) == name
-    if isinstance(node, ast.MatchMapping):
-        return node.rest == name
-    named = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.ExceptHandler, ast.MatchAs, ast.MatchStar)
-    return isinstance(node, named) and node.name == name
+    return _bound_name(node) == name
+
+
+def _scope_variables(scope: ast.AST) -> set[str]:
+    """Parameters and local variables of a function, lambda, class, or comprehension."""
+    _, own, params = _scope_parts(scope)
+    return params | {_bound_name(node) for node in _scope_nodes(own)} - {None}
+
+
+def _without_closure(node: ast.AST, enclosing: ast.AST | None) -> bool:
+    """Whether a function uses no parameter or local variable of its enclosing function."""
+    if enclosing is None:
+        return True
+    _, own, _ = _scope_parts(node)
+    captured = _scope_variables(enclosing) - _scope_variables(node)
+    return not any(_references(own, name) for name in captured)
 
 
 def _references(parts: list[ast.AST], name: str) -> list[ast.AST]:
@@ -189,30 +213,32 @@ def _double_star_forwards(call: ast.Call, use: ast.AST) -> bool:
     return any(kw.arg is None and kw.value is use for kw in call.keywords)
 
 
-def _simple_comprehension(node: ast.AST, parent: ast.AST | None) -> bool:
+def _simple_comprehension(node: ast.AST, parent: ast.AST | None, enclosing: ast.AST | None) -> bool:
     if not isinstance(node, COMPREHENSIONS):
         return True  # the inner `comprehension` clause is judged with its enclosing comprehension
     return len(node.generators) == 1 and len(node.generators[0].ifs) <= 1 and not _contains(node, COMPREHENSIONS)
 
 
 # Condition checks for restricted rules, by rule identifier. Each takes the matched
-# node and its parent, and returns True when the node meets the rule's condition.
+# node, its parent, and the nearest enclosing function (or None), and returns True
+# when the node meets the rule's condition.
 # Rules not listed here stay review items.
 CONDITIONS: dict[str, Callable[[ast.AST, ast.AST | None], bool]] = {
-    "SP110": lambda node, parent: len(node.ops) == 1,
+    "SP110": lambda node, parent, enclosing: len(node.ops) == 1,
     "SP114": _flat_conditional,
-    "SP115": lambda node, parent: isinstance(node.ctx, ast.Load) and isinstance(parent, (ast.Call, ast.List, ast.Tuple, ast.Set)),
+    "SP115": lambda node, parent, enclosing: isinstance(node.ctx, ast.Load) and isinstance(parent, (ast.Call, ast.List, ast.Tuple, ast.Set)),
     "SP116": _lambda_as_argument,
     "SP117": _simple_comprehension,
-    "SP203": lambda node, parent: len(node.targets) == 1,
-    "SP406": lambda node, parent: _forwarded_once(parent, _star_forwards, node.vararg.arg),
-    "SP407": lambda node, parent: _forwarded_once(parent, _double_star_forwards, node.kwarg.arg),
-    "SP503": lambda node, parent: len(node.bases) <= 1,
-    "SP603": lambda node, parent: node.level <= 1,
-    "SP702": lambda node, parent: node.type is not None,
+    "SP203": lambda node, parent, enclosing: len(node.targets) == 1,
+    "SP406": lambda node, parent, enclosing: _forwarded_once(parent, _star_forwards, node.vararg.arg),
+    "SP407": lambda node, parent, enclosing: _forwarded_once(parent, _double_star_forwards, node.kwarg.arg),
+    "SP408": lambda node, parent, enclosing: _without_closure(node, enclosing),
+    "SP503": lambda node, parent, enclosing: len(node.bases) <= 1,
+    "SP603": lambda node, parent, enclosing: node.level <= 1,
+    "SP702": lambda node, parent, enclosing: node.type is not None,
 }
 
-Condition = Callable[[ast.AST, ast.AST | None], bool] | None
+Condition = Callable[[ast.AST, ast.AST | None, ast.AST | None], bool] | None
 RuleIndex = dict[str, list[tuple[CheckRule, str, Condition]]]
 
 
@@ -254,12 +280,13 @@ def _build_rule_index(rules: Rules, restricted: bool) -> RuleIndex:
 
 def _check_tree(tree: ast.AST, path: str, rule_index: RuleIndex) -> list[Finding]:
     findings: set[Finding] = set()
-    stack: list[tuple[ast.AST, int, int, ast.AST | None]] = [(tree, 1, 1, None)]
+    stack: list[tuple[ast.AST, int, int, ast.AST | None, ast.AST | None]] = [(tree, 1, 1, None, None)]
     while stack:
-        node, line, column, parent = stack.pop()
+        node, line, column, parent, enclosing = stack.pop()
         if hasattr(node, "lineno"):
             line, column = node.lineno, node.col_offset + 1
-        stack.extend((child, line, column, node) for child in ast.iter_child_nodes(node))
+        inner = node if isinstance(node, FUNCTIONS) else enclosing
+        stack.extend((child, line, column, node, inner) for child in ast.iter_child_nodes(node))
         node_type = type(node).__name__
         if node_type not in rule_index:
             continue
@@ -270,7 +297,7 @@ def _check_tree(tree: ast.AST, path: str, rule_index: RuleIndex) -> list[Finding
                     continue
             if condition is None:
                 findings.add(Finding(path, line, column, rule.id, rule.slug, rule.status, text))
-            elif not condition(node, parent):
+            elif not condition(node, parent, enclosing):
                 findings.add(Finding(path, line, column, rule.id, rule.slug, "violated", text))
     return sorted(findings)
 
