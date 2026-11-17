@@ -1,8 +1,16 @@
-# Design: Defining the Simplified Python Subset
+# Subset design
+
+Design record for the simplified-Python subset: why it exists, how the rule registry is shaped, and the decisions behind it. It was written before the registry was built. The registry under `subset/` is the source of truth for the rules themselves, and [`subset.md`](../subset.md) is the generated reference.
+
+## Why
+
+The repository names an idea — "a simplified subset of Python that is easy for humans to review" — but does not define it. Nothing downstream can be built (checker, CI gate, agent guidance, formatter) until the subset is pinned down precisely enough to be decided mechanically, construct by construct, with no room for taste.
+
+Review cost, not writing cost, is the bottleneck this project targets. Full Python offers several spellings for the same behaviour and a number of constructs that force a reviewer to look away from the code under review (decorators, metaclasses, `*` imports, nested closures, chained comprehensions). A prose style guide cannot close that gap, because prose drifts from the tool that enforces it. This design therefore produces the subset definition as a single machine-readable source of truth from which the human-facing reference is generated.
 
 ## Context
 
-The repository is empty apart from a README, a licence, and a Python `.gitignore`. There is no prior code, no packaging, and no specs in `openspec/specs/`, so this change sets the conventions everything later inherits.
+When this design was written, the repository was empty apart from a README, a licence, and a Python `.gitignore`. There was no prior code or packaging, so this design set the conventions everything later inherits.
 
 The primary consumer is the **human reviewer**. The subset exists to lower the cost of reading a diff, so the definition must answer "is this construct allowed?" the same way every time, for every reviewer, with the reasoning attached. A secondary consumer is the **checker** that a later change will build; it must be able to read the definition as data rather than re-encoding it from prose.
 
@@ -15,7 +23,7 @@ Measured on the local interpreter (CPython 3.14.5): walking `ast.AST.__subclasse
 
 ## Prior Art
 
-**Closest production analog: [Starlark](https://starlark-lang.org/spec.html) (Bazel's configuration language, formerly Skylark).** Starlark is explicitly "a subset of Python," restricted for determinism and reviewability — no classes, no exceptions in the base language, no unbounded recursion, restricted mutation, order-independent evaluation. It validates the overall project shape: a Python-derived language can be narrowed for a reader's benefit and still ship at scale. It differs in one important respect — Starlark's completeness is a hand-written language specification, not a mechanically provable coverage claim against every AST node. The exhaustive-coverage guarantee in this design (Requirement: Exhaustive coverage of the target grammar) is more rigorous than the closest production precedent, not a redundant one.
+**Closest production analog: [Starlark](https://starlark-lang.org/spec.html) (Bazel's configuration language, formerly Skylark).** Starlark is explicitly "a subset of Python," restricted for determinism and reviewability — no classes, no exceptions in the base language, no unbounded recursion, restricted mutation, order-independent evaluation. It validates the overall project shape: a Python-derived language can be narrowed for a reader's benefit and still ship at scale. It differs in one important respect — Starlark's completeness is a hand-written language specification, not a mechanically provable coverage claim against every AST node. The exhaustive-coverage guarantee in this design (the registry's coverage check) is more rigorous than the closest production precedent, not a redundant one.
 
 **Rule-record format precedent: [SEI CERT coding standards](https://wiki.sei.cmu.edu/confluence/display/PY) and [SonarSource's rule repository](https://github.com/SonarSource/rspec).** CERT's C, C++, and Python standards use a stable rule ID, a rationale/discussion, and paired noncompliant/compliant examples — structurally close to this registry's `id`, `rationale`, and example fields. SonarSource's `rspec` repository is a structured rule-metadata source from which analyzer-facing documentation is generated, which is direct precedent for treating the registry as the source of truth and `docs/subset.md` as generated output. Neither achieves exhaustive coverage: both catalogue *known* problematic patterns rather than classifying every reachable grammar construct exactly once. CERT Python specifically is security-focused (injection, deserialization, unsafe resource handling) and is not a grammar-subset standard at all.
 
@@ -35,11 +43,11 @@ Measured on the local interpreter (CPython 3.14.5): walking `ast.AST.__subclasse
 
 **Non-Goals:**
 
-- The checker, CLI, or CI gate that enforces the subset on real code. This change produces the definition it will read.
+- The checker, CLI, or CI gate that enforces the subset on real code. This design produces the definition the checker reads; the checker came later (see [Agent skill and checker design](skill-and-checker.md)).
 - Severity levels, warning tiers, or per-project rule configuration. Enforcement policy belongs to the checker; the definition states only what the subset is.
 - Formatting and layout rules (line length, quote style, one statement per line). These are invisible to the AST and belong to a formatter change.
 - Restrictions on library and builtin use (`eval`, dynamic `getattr`, monkey-patching, threading). These are name- and semantics-level rules, not grammar, and need a different anchoring mechanism.
-- Code metrics — nesting depth, complexity, function length, parameter count. These are aggregate properties of a region measured against a number, which a construct anchor cannot express. They are defined as a distinct artifact kind by the `define-code-metrics` change, which shares this registry's principles, identifier ledger, and reference document without altering any requirement here.
+- Code metrics — nesting depth, complexity, function length, parameter count. These are aggregate properties of a region measured against a number, which a construct anchor cannot express. They are proposed as a distinct artifact kind in the [code metrics proposal](../proposals/code-metrics.md), which shares this registry's principles, identifier ledger, and reference document without altering anything here.
 - Agent-facing prompt guidance or rule autofixes.
 
 ## Decisions
@@ -170,7 +178,7 @@ These are the starting point for review, not a settled outcome; each needs its r
 
 - **The subset is only as good as its verdicts, and verdicts are opinions.** → Every non-`allowed` rule must cite a numbered principle, so disagreement happens over a principle once rather than over each rule forever. Principles are few and stated in the reference.
 - **Rule identifiers become public API the moment anyone cites one.** → An append-only ledger of issued identifiers plus a retired list, both validated, make an accidental renumber a build failure.
-- **Prose conditions on `restricted` rules can drift from the checker.** → Mandatory examples become the checker's acceptance tests in the next change.
+- **Prose conditions on `restricted` rules can drift from the checker.** → Mandatory examples are the checker's acceptance tests.
 - **Tying coverage to the live `ast` module couples the repository to one interpreter version.** → Accepted deliberately; the failure is loud and the fix is to classify the new constructs, which is the work we want to be forced to do. A version bump becomes a normal, visible change.
 - **Grouped anchors can hide a decision inside a group.** → Groups must share status *and* rationale; the rationale field makes an over-broad group visible in review.
 - **Over-restriction would make the subset unusable and quietly ignored.** → Restricting is preferred to banning where a condition can be stated, and the `restricted` status exists precisely so the answer is not always binary. Real-world validation (running the checker over an existing codebase) belongs to the checker change and will be the first honest test of calibration.
@@ -178,7 +186,7 @@ These are the starting point for review, not a settled outcome; each needs its r
 
 ## Migration Plan
 
-Not applicable: there is no existing code, no consumers, and nothing to roll back. The change is additive. The first genuine migration decision arrives when the target Python version is raised, and the mechanism for that is already specified — coverage validation fails until the new constructs are classified, and the rule-set version is raised alongside.
+Not applicable: there is no existing code, no consumers, and nothing to roll back. The design was additive. The first genuine migration decision arrives when the target Python version is raised, and the mechanism for that is already specified — coverage validation fails until the new constructs are classified, and the rule-set version is raised alongside.
 
 ## Resolved Questions
 
@@ -187,6 +195,6 @@ The open questions were settled during implementation. Each verdict is recorded 
 - **Template strings (`TemplateStr`, `Interpolation`, PEP 750): banned** (SP113). They give a second spelling close to f-strings, and their effect is decided by the code that consumes the template. Use an f-string and call any escaping function explicitly.
 - **Decorator allowlist: the core standard-library set** (SP405, SP504). Function decorators: `@property`, `@<name>.setter` and `@<name>.deleter`, `@staticmethod`, `@classmethod`, `@override` / `@typing.override`. Class decorators: `@dataclass` / `@dataclasses.dataclass`, with or without keyword arguments. Framework decorators are not permitted. The allowlist is name-based, so the listed names must not be rebound.
 - **`async` syntax: not yet in the subset** (SP801, SP802). Every async construct, including async comprehensions, is banned for this rule-set version. This is an explicit "not yet", not a permanent verdict.
-- **Type annotations: allowed, not required** (SP903, SP904). A rule that requires annotations would be a rule about a construct that is absent, and the anchor model cannot express that. If required annotations are wanted later, the anchor model needs an addition in its own change.
+- **Type annotations: allowed, not required** (SP903, SP904). A rule that requires annotations would be a rule about a construct that is absent, and the anchor model cannot express that. If required annotations are wanted later, the anchor model needs an addition of its own.
 - **Relative imports: at most one leading dot** (SP603).
 - **Anchor value matching.** An `ImportFrom` anchor narrowed by `names` cannot tell `from x import *` from `from x import y`. Narrowed anchors therefore accept an optional `value` (see "Rules are anchored to CPython AST node types"), and the star-import ban anchors to `alias.name == "*"`.

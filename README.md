@@ -9,7 +9,7 @@ A simplified subset of Python that is easy for humans to review.
 
 Every program written in the subset is an ordinary Python 3.14 program with unchanged behaviour. The subset only removes or narrows Python constructs. It never adds syntax, and no transpiler or preprocessing step exists.
 
-The subset is defined by the rule registry in [`subset/`](subset/). The human-readable reference, [`docs/subset.md`](docs/subset.md), is generated from that registry. See [`examples/`](examples/) for runnable programs written in the subset.
+The subset is defined by the rule registry in [`subset/`](subset/). The human-readable reference, [`docs/subset.md`](docs/subset.md), is generated from that registry. See [`examples/`](examples/) for runnable programs written in the subset, and [`docs/design/`](docs/design/) for why the subset, checker and skill are built as they are.
 
 ## The subset
 
