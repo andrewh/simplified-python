@@ -22,9 +22,14 @@ The checker SHALL verify the condition of each restricted rule it lists as check
 - **AND** any other use, a second use, or no use is reported as an error
 
 #### Scenario: Nested function uses an enclosing name
-- **WHEN** a function defined inside another function uses a parameter or local variable of the enclosing function, including another nested function or itself
+- **WHEN** a function defined inside another function uses a parameter or local variable of the enclosing function
 - **THEN** the checker reports an error for the nested-functions-without-closures rule at the nested function
-- **AND** a nested function that uses only its own names, globals, and builtins is not reported
+- **AND** a nested function that uses only its own names, globals, builtins, and helpers that the enclosing function defines once by `def` is not reported
+
+#### Scenario: Nested helpers call each other
+- **WHEN** a nested function calls another nested function, or itself, and the enclosing function binds that name only by a single `def`
+- **THEN** the checker reports nothing for the nested-functions-without-closures rule
+- **AND** if the enclosing function also rebinds that name, the call is reported
 
 #### Scenario: Violating examples of checked rules are flagged
 - **WHEN** the checker runs on each violating example of a restricted rule whose condition it checks

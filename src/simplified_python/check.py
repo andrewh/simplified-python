@@ -172,12 +172,27 @@ def _scope_variables(scope: ast.AST) -> set[str]:
     return params | {_bound_name(node) for node in _scope_nodes(own)} - {None}
 
 
+def _helpers(function: ast.AST) -> set[str]:
+    """Names a function binds exactly once, by a ``def`` statement, and that are not parameters."""
+    _, own, params = _scope_parts(function)
+    bindings: dict[str, list[ast.AST]] = {}
+    for node in _scope_nodes(own):
+        name = _bound_name(node)
+        if name is not None:
+            bindings.setdefault(name, []).append(node)
+    return {
+        name for name, nodes in bindings.items()
+        if name not in params and len(nodes) == 1 and isinstance(nodes[0], FUNCTIONS)
+    }
+
+
 def _without_closure(node: ast.AST, enclosing: ast.AST | None) -> bool:
-    """Whether a function uses no parameter or local variable of its enclosing function."""
+    """Whether a function uses no parameter or local variable of its enclosing function,
+    other than a helper that the enclosing function defines once by ``def``."""
     if enclosing is None:
         return True
     _, own, _ = _scope_parts(node)
-    captured = _scope_variables(enclosing) - _scope_variables(node)
+    captured = _scope_variables(enclosing) - _helpers(enclosing) - _scope_variables(node)
     return not any(_references(own, name) for name in captured)
 
 

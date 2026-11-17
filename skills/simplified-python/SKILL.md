@@ -5,7 +5,7 @@ description: Write, rewrite, or review Python in the "simplified Python" subset,
 
 # Simplified Python
 
-A conforming file is ordinary Python 3.14 with unchanged behaviour. The subset only removes or narrows constructs, so that a human can review AI-written code quickly. Rule-set version 1.
+A conforming file is ordinary Python 3.14 with unchanged behaviour. The subset only removes or narrows constructs, so that a human can review AI-written code quickly. Rule-set version 2.
 
 > [!WARNING]
 > **Experimental pre-release.** The subset is still being defined and is not ready for general use.
@@ -67,7 +67,7 @@ These may appear only when the condition holds.
 - [SP405](reference.md#sp405) `function-decorator-allowlist`: Decorators on a function or method: `@property`. *Condition:* Each decorator on a function is one of: `@property`, `@<name>.setter` or `@<name>.deleter` for a property defined in the same class, `@staticmethod`, `@classmethod`, or `@override` (imported from `typing`, or written as `@typing.override`). No other decorator is permitted.
 - [SP406](reference.md#sp406) `forwarding-varargs`: A variadic positional parameter: `def f(*args)`. *Condition (checked):* A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged.
 - [SP407](reference.md#sp407) `forwarding-kwargs`: A variadic keyword parameter: `def f(**kwargs)`. *Condition (checked):* A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged.
-- [SP408](reference.md#sp408) `nested-functions-without-closures`: A function defined inside the body of another function. *Condition (checked):* A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.
+- [SP408](reference.md#sp408) `nested-functions-without-closures`: A function defined inside the body of another function. *Condition (checked):* A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function. The one exception is a function defined in the enclosing function by a single `def` and never rebound, so nested helpers may call each other and themselves.
 - [SP503](reference.md#sp503) `single-base-class`: The base classes listed in a class header: `class Child(Parent)`. *Condition (checked):* A class lists at most one base class.
 - [SP504](reference.md#sp504) `class-decorator-allowlist`: Decorators on a class: `@dataclass`. *Condition:* The only permitted class decorator is `@dataclass` or `@dataclasses.dataclass`, written with or without keyword arguments, such as `@dataclass(frozen=True)`.
 - [SP603](reference.md#sp603) `shallow-relative-imports`: Relative imports: `from . import sibling`, `from ..package import name`. *Condition (checked):* A relative import has at most one leading dot. Imports from parent packages use the absolute module path.

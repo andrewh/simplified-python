@@ -13,6 +13,8 @@
 - **Documentation marks checked conditions.** The reference states for each restricted rule whether the checker verifies its condition. The README summary and the skill digest label checked conditions *Condition (checked)*. The pre-release notice and the skill workflow describe the new scope.
 - **flake8 plugin.** The prototype plugin shares the checker's logic, so it reports broken conditions by default too.
 
+- **SP408 allows nested helpers.** A nested function may use a name its enclosing function binds exactly once, by `def`. Nested helpers may call each other and recurse; capturing any other parameter or local variable is still an error, and so is using a helper name that is also rebound.
+
 Explicitly **not** in this change: conditions that need further analysis or an agreed allowlist (SP405, SP504), registry schema changes, and autofix.
 
 ## Capabilities
@@ -27,4 +29,4 @@ Explicitly **not** in this change: conditions that need further analysis or an a
 - **Behaviour:** code that passed the checker before can now fail it. `examples/rewrite/before.py` now also fails SP110, SP114, SP115, SP116, and SP702, which its comments already cited. Every conforming example still passes.
 - **Code:** `CONDITIONS` in `src/simplified_python/check.py` maps rule identifiers to predicates. `check.py` stays standard-library only.
 - **Generated files:** `docs/subset.md`, the README summary, and `skills/simplified-python/` are regenerated.
-- **Ruleset version:** unchanged. No rule is added or removed, and no status changes.
+- **Ruleset version:** raised to 2. No rule is added or removed and no status changes, but the SP408 condition is loosened so that nested helpers defined once by `def` may call each other and themselves. That changes what conforms, so it is recorded as a rule-set change.

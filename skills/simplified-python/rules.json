@@ -1,5 +1,5 @@
 {
-  "ruleset_version": 1,
+  "ruleset_version": 2,
   "python_version": "3.14",
   "rules": [
     {
@@ -187,7 +187,7 @@
       "slug": "nested-functions-without-closures",
       "status": "restricted",
       "construct": "A function defined inside the body of another function.",
-      "condition": "A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.",
+      "condition": "A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function. The one exception is a function defined in the enclosing function by a single `def` and never rebound, so nested helpers may call each other and themselves.",
       "replacement": null,
       "anchor": {
         "nodes": [

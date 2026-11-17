@@ -8,7 +8,7 @@
 #                  of every identifier in the category (block 6 = SP6xx).
 
 python_version = "3.14"
-ruleset_version = 1
+ruleset_version = 2
 
 [[category]]
 name = "expressions"
@@ -67,3 +67,7 @@ file = "rules/typing.toml"
 [[changelog]]
 version = 1
 summary = "Initial rule set: every construct in the Python 3.14 grammar classified."
+
+[[changelog]]
+version = 2
+summary = "SP408 nested-functions-without-closures: a nested function may use a helper defined once by `def` in the enclosing function, so nested helpers may call each other and themselves."
