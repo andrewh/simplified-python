@@ -8,7 +8,7 @@
 > [!WARNING]
 > **Experimental pre-release.** The subset is still being defined and is not ready for general use.
 > Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,
-> and the checker enforces only the banned rules; restricted conditions still rely on human review.
+> and the checker enforces the banned rules and some restricted conditions; the other conditions still rely on human review.
 
 Rule-set version **1**, defining a subset of the **Python 3.14** grammar.
 
@@ -282,6 +282,8 @@ ready = connected and not paused
 
 **Condition:** A comparison uses exactly one comparison operator. Chained comparisons such as `a < b < c` are not permitted.
 
+**Checked:** by the checker
+
 **Rationale:** One comparison is read at a glance. A chain such as `a < b == c` is an implicit `and` of several comparisons and is easy to misread, in particular when the operators are mixed.
 
 **Principles:** [P2 · one-obvious-spelling](#p2), [P4 · bounded-reading-cost](#p4)
@@ -367,6 +369,8 @@ greeting = f"Hello {escape(name)}"
 
 **Condition:** The test and both branches of a conditional expression do not contain another conditional expression.
 
+**Checked:** by the checker
+
 **Rationale:** One conditional expression reads as a sentence. Nested conditional expressions must be unpacked to find which branch applies. An `if` statement shows the same logic as visible branches.
 
 **Principles:** [P4 · bounded-reading-cost](#p4)
@@ -392,6 +396,8 @@ label = "high" if level > 2 else "mid" if level > 1 else "low"
 **Construct:** Starred expressions: `f(*args)`, `[*head, *tail]`, `first, *rest = items`.
 
 **Condition:** A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.
+
+**Checked:** by hand; the checker does not verify it
 
 **Rationale:** Unpacking into a call or display shows where the values go. A starred target splits a sequence by position, and the reader must count the other targets to know what each name holds. Indexing or slicing says it directly.
 
@@ -421,6 +427,8 @@ first, *rest = items
 
 **Condition:** A lambda is permitted only as a direct argument of a call, such as `sorted(items, key=lambda item: item.size)`.
 
+**Checked:** by the checker
+
 **Rationale:** As a short argument, a lambda keeps a one-line function next to the call that uses it. A lambda stored in a name or a data structure is a function without a name: it cannot be found by searching, cannot be tested directly, and shows no name in tracebacks. Use `def` for it.
 
 **Principles:** [P1 · local-reasoning](#p1)
@@ -447,6 +455,8 @@ ordered = sorted(items, key=by_size)
 **Construct:** List, set, and dict comprehensions, generator expressions, and their `for` / `if` clauses.
 
 **Condition:** A comprehension has exactly one `for` clause and at most one `if` clause, and contains no other comprehension.
+
+**Checked:** by the checker
 
 **Rationale:** A comprehension with one `for` and one filter reads left to right. With more clauses, or a comprehension inside another, the order of evaluation runs inside-out and the reader must reconstruct the loops. Nested `for` statements show the same logic in the order it runs.
 
@@ -542,6 +552,8 @@ log.info("done")
 **Construct:** Assignment: `total = 0`, `x, y = point`.
 
 **Condition:** An assignment has exactly one target, before a single `=`. Chained assignment such as `a = b = 0` is not permitted. Unpacking into one tuple target such as `x, y = point` is permitted.
+
+**Checked:** by the checker
 
 **Rationale:** With chained assignment, several names refer to the same object. If the object is mutable, a change through one name appears through the other. One target per statement makes each binding explicit.
 
@@ -894,6 +906,8 @@ def walk(tree):
 
 **Condition:** Each decorator on a function is one of: `@property`, `@<name>.setter` or `@<name>.deleter` for a property defined in the same class, `@staticmethod`, `@classmethod`, or `@override` (imported from `typing`, or written as `@typing.override`). No other decorator is permitted.
 
+**Checked:** by hand; the checker does not verify it
+
 **Rationale:** A decorator can replace the function under it with anything. The reader sees one definition, but a different object runs. The allowlist keeps the decorators whose effect every Python reader knows. A name-based allowlist cannot prove that the name refers to the standard-library object, so the names on the list must not be rebound.
 
 **Principles:** [P1 · local-reasoning](#p1), [P3 · no-action-at-a-distance](#p3)
@@ -933,6 +947,8 @@ def fetch(url):
 
 **Condition:** A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged.
 
+**Checked:** by the checker
+
 **Rationale:** `*args` hides the parameters a function takes. The reader must find every caller to learn what is passed. Forwarding to one call is the one use where the target function documents the real parameters.
 
 **Principles:** [P1 · local-reasoning](#p1)
@@ -960,6 +976,8 @@ def area(*args):
 **Construct:** A variadic keyword parameter: `def f(**kwargs)`.
 
 **Condition:** A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged.
+
+**Checked:** by the checker
 
 **Rationale:** `**kwargs` hides which options a function accepts. Lookups such as `kwargs.get("timeout")` scatter the real parameter list through the body. Forwarding to one call is the one use where the target function documents the real parameters.
 
@@ -989,6 +1007,8 @@ def connect(**kwargs):
 **Construct:** A function defined inside the body of another function.
 
 **Condition:** A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.
+
+**Checked:** by hand; the checker does not verify it
 
 **Rationale:** A nested function that captures names from its enclosing function is a closure. Its behaviour depends on state that is not in its parameter list, and that state can change after the closure is created. A nested function that captures nothing is a local helper. Its inputs are visible.
 
@@ -1076,6 +1096,8 @@ register(Plugin)
 
 **Condition:** A class lists at most one base class.
 
+**Checked:** by the checker
+
 **Rationale:** With multiple inheritance, the method that runs depends on the method resolution order across every base class and their bases. To answer the question "what does this call do?", the reader must read code outside the class.
 
 **Principles:** [P1 · local-reasoning](#p1)
@@ -1103,6 +1125,8 @@ class Admin(User, AuditMixin):
 **Construct:** Decorators on a class: `@dataclass`.
 
 **Condition:** The only permitted class decorator is `@dataclass` or `@dataclasses.dataclass`, written with or without keyword arguments, such as `@dataclass(frozen=True)`.
+
+**Checked:** by hand; the checker does not verify it
 
 **Rationale:** A class decorator can replace or change the class under it. Dataclasses are the standard way to declare a record type, and every Python reader knows what they generate. Other class decorators register, wrap, or rewrite the class away from its definition.
 
@@ -1185,6 +1209,8 @@ from collections import defaultdict as multimap
 
 **Condition:** A relative import has at most one leading dot. Imports from parent packages use the absolute module path.
 
+**Checked:** by the checker
+
 **Rationale:** One dot means "this package", and the reader can see that in the file tree. Each extra dot makes the reader count directories to find the module, and the import breaks silently when the file moves.
 
 **Principles:** [P1 · local-reasoning](#p1)
@@ -1235,6 +1261,8 @@ finally:
 **Construct:** An `except` clause: `except ValueError as error:`.
 
 **Condition:** Every `except` clause names the exception type or types it handles. A bare `except:` is not permitted.
+
+**Checked:** by the checker
 
 **Rationale:** A bare `except:` also catches `KeyboardInterrupt` and `SystemExit`, and it does not tell the reader which failure is expected. A named exception type states what the handler is for.
 

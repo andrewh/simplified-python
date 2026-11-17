@@ -22,9 +22,9 @@ Apply the subset when the user or the project asks for it, or when you are editi
    uv run --python {{PYTHON_VERSION}} <skill-dir>/check.py PATH...
    ```
 
-   It prints `file:line:col: error SPxxx slug: ...` with the replacement for each banned construct and exits 1. Fix every one and run it again until it exits 0. Exit 2 means a file did not parse or the wrong Python ran; nothing was checked.
-3. Review restricted constructs by hand. The checker does not verify their conditions. `--restricted` lists every occurrence as a checklist. It is noisy, because common constructs such as assignments and comprehensions are restricted.
-4. A clean checker run only proves that no banned construct is present. Do not say the code "conforms" until step 3 is done.
+   It prints `file:line:col: error SPxxx slug: ...` for each banned construct, with its replacement, and for each restricted construct that breaks a condition marked *(checked)* below, with the condition. It exits 1 if it finds any. Fix every one and run it again until it exits 0. Exit 2 means a file did not parse or the wrong Python ran; nothing was checked.
+3. Review the other restricted constructs by hand. The checker does not verify conditions that are not marked *(checked)*. `--restricted` lists every occurrence of those constructs as a checklist.
+4. A clean checker run proves that no banned construct is present and every checked condition holds. Do not say the code "conforms" until step 3 is done.
 5. When you rewrite existing code, cite the rule identifiers you removed, in your summary or in a comment, for example `# was SP118`.
 6. If a task seems to need a banned construct, stop and ask. Do not use it silently, and do not work around the rule with a construct that has the same effect.
 
@@ -55,4 +55,4 @@ Anything not named above is classified by the same registry; look it up in [refe
 ## Reference and examples
 
 - [reference.md](reference.md): every rule with rationale and compliant and violating examples. Rules link to anchors such as `reference.md#sp601`.
-- [examples/before.py](examples/before.py) and [examples/after.py](examples/after.py): the same program in full Python (breaking SP118, SP208, SP304 and SP601 on purpose) and rewritten in the subset. They print the same output.
+- [examples/before.py](examples/before.py) and [examples/after.py](examples/after.py): the same program in full Python (breaking SP118, SP208, SP304 and SP601, and the conditions of SP110, SP114, SP115, SP116 and SP702, on purpose) and rewritten in the subset. They print the same output.

@@ -14,6 +14,7 @@
 - Regenerate the agent skill: `uv run python -m simplified_python.skill`
 - Check the skill is current: `uv run python -m simplified_python.skill --check`
 - Check code against the banned rules: `uv run --python 3.14 skills/simplified-python/check.py PATH...` (add `--restricted` to list restricted constructs for review)
+- Check code with the flake8 plugin (prototype; same rules as `check.py`): `uv run flake8 --select SP PATH...` (add `--sp-restricted` to list restricted constructs)
 - Run tests: `uv run pytest`
 - Run an example: `uv run examples/<file>.py`
 - Validate the OpenSpec change: `openspec validate <change> --strict` (from the repo root)

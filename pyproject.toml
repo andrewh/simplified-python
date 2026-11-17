@@ -12,8 +12,14 @@ requires-python = ">=3.14"
 classifiers = ["Development Status :: 2 - Pre-Alpha"]
 dependencies = []
 
+[project.entry-points."flake8.extension"]
+SP = "simplified_python.flake8_plugin:SimplifiedPythonChecker"
+
 [dependency-groups]
-dev = ["pytest>=8.3"]
+dev = [
+    "flake8>=7.5.0",
+    "pytest>=8.3",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

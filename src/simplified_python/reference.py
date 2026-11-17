@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from simplified_python.check import CONDITIONS
 from simplified_python.registry import DEFAULT_ROOT, Registry, Rule, _validate, format_errors
 
 COMMAND = "python -m simplified_python.reference"
@@ -21,7 +22,7 @@ PRERELEASE_NOTICE = (
     "> [!WARNING]",
     "> **Experimental pre-release.** The subset is still being defined and is not ready for general use.",
     "> Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,",
-    "> and the checker enforces only the banned rules; restricted conditions still rely on human review.",
+    "> and the checker enforces the banned rules and some restricted conditions; the other conditions still rely on human review.",
 )
 
 
@@ -93,7 +94,8 @@ def _entry(registry: Registry, rule: Rule) -> list[str]:
         "",
     ]
     if rule.condition is not None:
-        lines += [f"**Condition:** {rule.condition}", ""]
+        checked = "by the checker" if rule.id in CONDITIONS else "by hand; the checker does not verify it"
+        lines += [f"**Condition:** {rule.condition}", "", f"**Checked:** {checked}", ""]
     lines += [f"**Rationale:** {rule.rationale}", ""]
     if rule.principles:
         cited = ", ".join(f"[{p} · {registry.principle(p).name}](#{anchor_id(p)})" for p in rule.principles)
@@ -132,9 +134,14 @@ def render_summary(registry: Registry, reference: str = "docs/subset.md") -> str
         for rule in rules:
             if rule.status == status:
                 text = getattr(rule, detail)
-                label = "Instead" if status == "banned" else "Condition"
+                label = "Instead" if status == "banned" else condition_label(rule)
                 out.append(f"- [{rule.id}]({reference}#{anchor_id(rule.id)}) `{rule.slug}`: {rule.construct} *{label}:* {text}")
     return "\n".join(out) + "\n"
+
+
+def condition_label(rule: Rule) -> str:
+    """Label for a restricted rule's condition, saying whether the checker verifies it."""
+    return "Condition (checked)" if rule.id in CONDITIONS else "Condition"
 
 
 def splice_summary(readme: str, summary: str) -> str:
