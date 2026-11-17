@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean, median
 
+from simplified_python.check import CONDITIONS
+
 REPO = Path(__file__).resolve().parents[1]
 EXAMPLES = REPO / "examples"
 
@@ -65,6 +67,26 @@ def time_cli(checker_path: Path, rules_path: Path, target: Path, restricted: boo
     return elapsed, result.stdout, result.stderr, result.returncode
 
 
+def unconditioned_findings(stdout: str) -> list[str]:
+    """Finding lines for rules whose behaviour predates condition checks.
+
+    The summary line and findings for rules in ``CONDITIONS`` intentionally differ
+    from the legacy baseline, so they are left out of the comparison.
+    """
+    findings = []
+    for line in stdout.splitlines():
+        parts = line.split(": ", 2)
+        if len(parts) == 3 and parts[1].split()[:1] in (["error"], ["review"]):
+            if parts[1].split()[1] not in CONDITIONS:
+                findings.append(line)
+    return findings
+
+
+def exit_status_matches_output(stdout: str, returncode: int) -> bool:
+    has_error = any(": error SP" in line for line in stdout.splitlines())
+    return returncode == (1 if has_error else 0)
+
+
 def compare_workload(workload_name: str, target: Path, samples: int, restricted: bool = False, file_count: int = 1) -> Comparison:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
@@ -94,9 +116,11 @@ def compare_workload(workload_name: str, target: Path, samples: int, restricted:
         speedup = legacy_median / optimized_median if optimized_median > 0 else 0
 
         for (l_out, l_err, l_ret), (o_out, o_err, o_ret) in zip(legacy_outputs, optimized_outputs):
-            assert l_out == o_out, f"Output mismatch: legacy={l_out!r}, optimized={o_out!r}"
+            l_findings, o_findings = unconditioned_findings(l_out), unconditioned_findings(o_out)
+            assert l_findings == o_findings, f"Findings mismatch: legacy={l_findings!r}, optimized={o_findings!r}"
             assert l_err == o_err, f"Stderr mismatch: legacy={l_err!r}, optimized={o_err!r}"
-            assert l_ret == o_ret, f"Returncode mismatch: legacy={l_ret}, optimized={o_ret}"
+            assert exit_status_matches_output(l_out, l_ret), f"Legacy exit status {l_ret} disagrees with its output"
+            assert exit_status_matches_output(o_out, o_ret), f"Optimized exit status {o_ret} disagrees with its output"
 
         return Comparison(workload_name, legacy_median, optimized_median, speedup, samples, file_count)
 
@@ -156,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     print("- Both run as subprocess CLI with same rules.json")
     print("- Workloads: small file (~60 lines), large synthetic (6000 lines), 100 files (~60 lines each)")
     print("- Median reported over N samples to reduce outlier impact")
-    print("- Output equality verified between legacy and optimized")
+    print("- Findings verified equal between legacy and optimized for rules without condition checks")
     print("- Includes full CLI overhead: Python startup, imports, file I/O, checking")
     print(f"- Samples: {args.samples} per workload (no halving)")
 

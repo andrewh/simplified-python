@@ -113,21 +113,80 @@ def _lambda_as_argument(node: ast.AST, parent: ast.AST | None) -> bool:
     return isinstance(parent, ast.Call) and any(arg is node for arg in parent.args)
 
 
-def _forwarded_once(arguments: ast.AST, function: ast.AST | None, forwarding: Callable[[ast.Call, str], int], name: str) -> bool:
-    """Whether the function body uses ``name`` exactly once, as a forwarding argument of a call."""
-    body = function.body if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) else [function.body]
-    nodes = [inner for statement in body for inner in ast.walk(statement)]
-    uses = sum(isinstance(inner, ast.Name) and inner.id == name for inner in nodes)
-    forwards = sum(forwarding(inner, name) for inner in nodes if isinstance(inner, ast.Call))
-    return uses == 1 and forwards == 1
+SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef, *COMPREHENSIONS)
 
 
-def _star_forwards(call: ast.Call, name: str) -> int:
-    return sum(isinstance(arg, ast.Starred) and isinstance(arg.value, ast.Name) and arg.value.id == name for arg in call.args)
+def _scope_parts(scope: ast.AST) -> tuple[list[ast.AST], list[ast.AST], set[str]]:
+    """Split a scope-creating node into the parts evaluated in the enclosing scope,
+    the parts evaluated in its own scope, and the names of its parameters."""
+    if isinstance(scope, ast.ClassDef):
+        return [*scope.decorator_list, *scope.bases, *scope.keywords], list(scope.body), set()
+    if isinstance(scope, COMPREHENSIONS):
+        first, *rest = scope.generators
+        results = [scope.key, scope.value] if isinstance(scope, ast.DictComp) else [scope.elt]
+        own = [*results, first.target, *first.ifs]
+        for generator in rest:
+            own += [generator.target, generator.iter, *generator.ifs]
+        return [first.iter], own, set()
+    args = scope.args
+    params = [*args.posonlyargs, *args.args, *args.kwonlyargs, *filter(None, (args.vararg, args.kwarg))]
+    outer = [*args.defaults, *filter(None, args.kw_defaults), *filter(None, (p.annotation for p in params))]
+    if isinstance(scope, ast.Lambda):
+        return outer, [scope.body], {p.arg for p in params}
+    return [*scope.decorator_list, *outer, *filter(None, [scope.returns])], list(scope.body), {p.arg for p in params}
 
 
-def _double_star_forwards(call: ast.Call, name: str) -> int:
-    return sum(kw.arg is None and isinstance(kw.value, ast.Name) and kw.value.id == name for kw in call.keywords)
+def _scope_nodes(parts: list[ast.AST]) -> Iterator[ast.AST]:
+    """Nodes evaluated in one scope: nested scopes contribute only their enclosing-scope parts."""
+    stack = list(parts)
+    while stack:
+        node = stack.pop()
+        yield node
+        stack.extend(_scope_parts(node)[0] if isinstance(node, SCOPES) else ast.iter_child_nodes(node))
+
+
+def _binds(node: ast.AST, name: str) -> bool:
+    """Whether ``node`` binds ``name`` in the scope that evaluates it."""
+    if isinstance(node, ast.Name):
+        return node.id == name and not isinstance(node.ctx, ast.Load)
+    if isinstance(node, ast.alias):
+        return (node.asname or node.name.split(".")[0]) == name
+    if isinstance(node, ast.MatchMapping):
+        return node.rest == name
+    named = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.ExceptHandler, ast.MatchAs, ast.MatchStar)
+    return isinstance(node, named) and node.name == name
+
+
+def _references(parts: list[ast.AST], name: str) -> list[ast.AST]:
+    """Nodes that read or rebind the variable ``name`` of the scope evaluating ``parts``,
+    following nested scopes that do not bind a ``name`` of their own."""
+    found: list[ast.AST] = []
+    for node in _scope_nodes(parts):
+        if (isinstance(node, ast.Name) and node.id == name) or _binds(node, name):
+            found.append(node)
+        if isinstance(node, SCOPES):
+            _, own, params = _scope_parts(node)
+            if name not in params and not any(_binds(inner, name) for inner in _scope_nodes(own)):
+                found += _references(own, name)
+    return found
+
+
+def _forwarded_once(function: ast.AST | None, forwards: Callable[[ast.Call, ast.AST], bool], name: str) -> bool:
+    """Whether the function's own variable ``name`` is used exactly once, forwarded unchanged in a call."""
+    _, body, _ = _scope_parts(function)
+    uses = _references(body, name)
+    if len(uses) != 1:
+        return False
+    calls = (node for part in body for node in ast.walk(part) if isinstance(node, ast.Call))
+    return any(forwards(call, uses[0]) for call in calls)
+
+
+def _star_forwards(call: ast.Call, use: ast.AST) -> bool:
+    return any(isinstance(arg, ast.Starred) and arg.value is use for arg in call.args)
+
+
+def _double_star_forwards(call: ast.Call, use: ast.AST) -> bool:
+    return any(kw.arg is None and kw.value is use for kw in call.keywords)
 
 
 def _simple_comprehension(node: ast.AST, parent: ast.AST | None) -> bool:
@@ -145,8 +204,8 @@ CONDITIONS: dict[str, Callable[[ast.AST, ast.AST | None], bool]] = {
     "SP116": _lambda_as_argument,
     "SP117": _simple_comprehension,
     "SP203": lambda node, parent: len(node.targets) == 1,
-    "SP406": lambda node, parent: _forwarded_once(node, parent, _star_forwards, node.vararg.arg),
-    "SP407": lambda node, parent: _forwarded_once(node, parent, _double_star_forwards, node.kwarg.arg),
+    "SP406": lambda node, parent: _forwarded_once(parent, _star_forwards, node.vararg.arg),
+    "SP407": lambda node, parent: _forwarded_once(parent, _double_star_forwards, node.kwarg.arg),
     "SP503": lambda node, parent: len(node.bases) <= 1,
     "SP603": lambda node, parent: node.level <= 1,
     "SP702": lambda node, parent: node.type is not None,
