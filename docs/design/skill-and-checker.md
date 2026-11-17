@@ -56,7 +56,7 @@ The first version of the checker enforced only banned rules and listed restricte
 - **Unchecked restricted rules stay review items.** The other restricted rules keep their current behaviour: listed only with `--restricted`, never failing the run.
 - **Documentation marks checked conditions.** The reference states for each restricted rule whether the checker verifies its condition. The README summary and the skill digest label checked conditions *Condition (checked)*. The pre-release notice and the skill workflow describe the new scope.
 - **flake8 plugin.** The prototype plugin shares the checker's logic, so it reports broken conditions by default too.
-- **SP408 allows nested helpers.** A nested function may use a name its enclosing function binds exactly once, by `def`. Nested helpers may call each other and recurse; capturing any other parameter or local variable is still an error, and so is using a helper name that is also rebound.
+- **SP408 allows nested helpers.** A nested function may use a name its enclosing function binds exactly once, by `def`. Nested helpers may call each other and recurse; capturing any other parameter or local variable is still an error, and so is using a helper name that is also rebound, or defined inside a loop, where each pass rebinds it. A class body between the two functions does not hide an outer name, because methods cannot see class-level names, and a nested function's own type parameters do hide outer names.
 
 Explicitly **not** included: the decorator allowlist checks (SP405, SP504), registry schema changes, and autofix.
 

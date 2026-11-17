@@ -116,11 +116,17 @@ def _lambda_as_argument(node: ast.AST, parent: ast.AST | None, enclosing: ast.AS
 SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef, *COMPREHENSIONS)
 
 
+def _type_params(scope: ast.AST) -> set[str]:
+    """Names of a function's or class's type parameters (PEP 695)."""
+    return {param.name for param in getattr(scope, "type_params", ())}
+
+
 def _scope_parts(scope: ast.AST) -> tuple[list[ast.AST], list[ast.AST], set[str]]:
     """Split a scope-creating node into the parts evaluated in the enclosing scope,
-    the parts evaluated in its own scope, and the names of its parameters."""
+    the parts evaluated in its own scope, and the names it binds as parameters,
+    including type parameters."""
     if isinstance(scope, ast.ClassDef):
-        return [*scope.decorator_list, *scope.bases, *scope.keywords], list(scope.body), set()
+        return [*scope.decorator_list, *scope.bases, *scope.keywords], list(scope.body), _type_params(scope)
     if isinstance(scope, COMPREHENSIONS):
         first, *rest = scope.generators
         results = [scope.key, scope.value] if isinstance(scope, ast.DictComp) else [scope.elt]
@@ -133,7 +139,8 @@ def _scope_parts(scope: ast.AST) -> tuple[list[ast.AST], list[ast.AST], set[str]
     outer = [*args.defaults, *filter(None, args.kw_defaults), *filter(None, (p.annotation for p in params))]
     if isinstance(scope, ast.Lambda):
         return outer, [scope.body], {p.arg for p in params}
-    return [*scope.decorator_list, *outer, *filter(None, [scope.returns])], list(scope.body), {p.arg for p in params}
+    names = {p.arg for p in params} | _type_params(scope)
+    return [*scope.decorator_list, *outer, *filter(None, [scope.returns])], list(scope.body), names
 
 
 def _scope_nodes(parts: list[ast.AST]) -> Iterator[ast.AST]:
@@ -173,8 +180,11 @@ def _scope_variables(scope: ast.AST) -> set[str]:
 
 
 def _helpers(function: ast.AST) -> set[str]:
-    """Names a function binds exactly once, by a ``def`` statement, and that are not parameters."""
+    """Names a function binds exactly once, by a ``def`` statement outside any loop,
+    and that are not parameters."""
     _, own, params = _scope_parts(function)
+    loops = [node for node in _scope_nodes(own) if isinstance(node, (ast.For, ast.While))]
+    repeated = {id(node) for loop in loops for node in _scope_nodes(loop.body) if isinstance(node, FUNCTIONS)}
     bindings: dict[str, list[ast.AST]] = {}
     for node in _scope_nodes(own):
         name = _bound_name(node)
@@ -182,7 +192,7 @@ def _helpers(function: ast.AST) -> set[str]:
             bindings.setdefault(name, []).append(node)
     return {
         name for name, nodes in bindings.items()
-        if name not in params and len(nodes) == 1 and isinstance(nodes[0], FUNCTIONS)
+        if name not in params and len(nodes) == 1 and isinstance(nodes[0], FUNCTIONS) and id(nodes[0]) not in repeated
     }
 
 
@@ -192,7 +202,8 @@ def _without_closure(node: ast.AST, enclosing: ast.AST | None) -> bool:
     if enclosing is None:
         return True
     _, own, _ = _scope_parts(node)
-    captured = _scope_variables(enclosing) - _helpers(enclosing) - _scope_variables(node)
+    # The enclosing function's type parameters are type variables, not state.
+    captured = _scope_variables(enclosing) - _type_params(enclosing) - _helpers(enclosing) - _scope_variables(node)
     return not any(_references(own, name) for name in captured)
 
 
@@ -204,10 +215,20 @@ def _references(parts: list[ast.AST], name: str) -> list[ast.AST]:
         if (isinstance(node, ast.Name) and node.id == name) or _binds(node, name):
             found.append(node)
         if isinstance(node, SCOPES):
-            _, own, params = _scope_parts(node)
-            if name not in params and not any(_binds(inner, name) for inner in _scope_nodes(own)):
-                found += _references(own, name)
+            found += _nested_references(node, name)
     return found
+
+
+def _nested_references(scope: ast.AST, name: str) -> list[ast.AST]:
+    """References to an enclosing scope's ``name`` from inside a nested ``scope``."""
+    _, own, params = _scope_parts(scope)
+    if name not in params and not any(_binds(inner, name) for inner in _scope_nodes(own)):
+        return _references(own, name)
+    if isinstance(scope, ast.ClassDef) and name not in params:
+        # A class-body binding is not visible inside the class's methods, which
+        # still see the enclosing name.
+        return [ref for inner in _scope_nodes(own) if isinstance(inner, SCOPES) for ref in _nested_references(inner, name)]
+    return []
 
 
 def _forwarded_once(function: ast.AST | None, forwards: Callable[[ast.Call, ast.AST], bool], name: str) -> bool:
