@@ -73,7 +73,13 @@ def test_flake8_loads_the_plugin_and_honours_noqa(tmp_path):
 
 
 def test_flake8_restricted_option(tmp_path):
-    source = "a = b = 0\n"
+    source = "f = lambda x: x\n"
     assert run_flake8(tmp_path, source).returncode == 0
     result = run_flake8(tmp_path, source, "--sp-restricted")
-    assert "SP203" in result.stdout
+    assert "SP116" in result.stdout
+
+
+def test_flake8_reports_broken_condition_by_default(tmp_path):
+    result = run_flake8(tmp_path, "a = b = 0\n")
+    assert result.returncode == 1
+    assert "SP203 single-target-assignment: " in result.stdout

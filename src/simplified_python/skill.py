@@ -35,7 +35,7 @@ def render_digest(registry: Registry) -> dict[str, str]:
     return {
         "PRINCIPLES": "\n".join(f"- **{p.id} {p.name}**: {p.statement}" for p in registry.principles),
         "BANNED": "\n".join(f"- {link(r)}: {r.construct} *Instead:* {r.replacement}" for r in rules if r.status == "banned"),
-        "RESTRICTED": "\n".join(f"- {link(r)}: {r.construct} *Condition:* {r.condition}" for r in rules if r.status == "restricted"),
+        "RESTRICTED": "\n".join(f"- {link(r)}: {r.construct} *{reference.condition_label(r)}:* {r.condition}" for r in rules if r.status == "restricted"),
         "ALLOWED": ", ".join(f"`{r.slug}`" for r in rules if r.status == "allowed"),
         "PRERELEASE": "\n".join(reference.PRERELEASE_NOTICE),
         "RULESET_VERSION": str(registry.ruleset_version),

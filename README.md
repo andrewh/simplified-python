@@ -3,7 +3,7 @@
 > [!WARNING]
 > **Experimental pre-release.** The subset is still being defined and is not ready for general use.
 > Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,
-> and the checker enforces only the banned rules; restricted conditions still rely on human review.
+> and the checker enforces the banned rules and some restricted conditions; the other conditions still rely on human review.
 
 A simplified subset of Python that is easy for humans to review.
 
@@ -34,20 +34,20 @@ Rule-set version 1 classifies every construct in the Python 3.14 grammar with 58
 
 ### Restricted
 
-- [SP110](docs/subset.md#sp110) `single-comparison`: A comparison: `a < b`, `x == y`, `key in table`. *Condition:* A comparison uses exactly one comparison operator. Chained comparisons such as `a < b < c` are not permitted.
-- [SP114](docs/subset.md#sp114) `flat-conditional-expression`: A conditional expression: `a if condition else b`. *Condition:* The test and both branches of a conditional expression do not contain another conditional expression.
+- [SP110](docs/subset.md#sp110) `single-comparison`: A comparison: `a < b`, `x == y`, `key in table`. *Condition (checked):* A comparison uses exactly one comparison operator. Chained comparisons such as `a < b < c` are not permitted.
+- [SP114](docs/subset.md#sp114) `flat-conditional-expression`: A conditional expression: `a if condition else b`. *Condition (checked):* The test and both branches of a conditional expression do not contain another conditional expression.
 - [SP115](docs/subset.md#sp115) `starred-unpacking`: Starred expressions: `f(*args)`, `[*head, *tail]`, `first, *rest = items`. *Condition:* A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.
 - [SP116](docs/subset.md#sp116) `lambda-as-argument`: Anonymous functions: `lambda item: item.size`. *Condition:* A lambda is permitted only as a direct argument of a call, such as `sorted(items, key=lambda item: item.size)`.
-- [SP117](docs/subset.md#sp117) `simple-comprehensions`: List, set, and dict comprehensions, generator expressions, and their `for` / `if` clauses. *Condition:* A comprehension has exactly one `for` clause and at most one `if` clause, and contains no other comprehension.
-- [SP203](docs/subset.md#sp203) `single-target-assignment`: Assignment: `total = 0`, `x, y = point`. *Condition:* An assignment has exactly one target, before a single `=`. Chained assignment such as `a = b = 0` is not permitted. Unpacking into one tuple target such as `x, y = point` is permitted.
+- [SP117](docs/subset.md#sp117) `simple-comprehensions`: List, set, and dict comprehensions, generator expressions, and their `for` / `if` clauses. *Condition (checked):* A comprehension has exactly one `for` clause and at most one `if` clause, and contains no other comprehension.
+- [SP203](docs/subset.md#sp203) `single-target-assignment`: Assignment: `total = 0`, `x, y = point`. *Condition (checked):* An assignment has exactly one target, before a single `=`. Chained assignment such as `a = b = 0` is not permitted. Unpacking into one tuple target such as `x, y = point` is permitted.
 - [SP405](docs/subset.md#sp405) `function-decorator-allowlist`: Decorators on a function or method: `@property`. *Condition:* Each decorator on a function is one of: `@property`, `@<name>.setter` or `@<name>.deleter` for a property defined in the same class, `@staticmethod`, `@classmethod`, or `@override` (imported from `typing`, or written as `@typing.override`). No other decorator is permitted.
 - [SP406](docs/subset.md#sp406) `forwarding-varargs`: A variadic positional parameter: `def f(*args)`. *Condition:* A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged.
 - [SP407](docs/subset.md#sp407) `forwarding-kwargs`: A variadic keyword parameter: `def f(**kwargs)`. *Condition:* A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged.
 - [SP408](docs/subset.md#sp408) `nested-functions-without-closures`: A function defined inside the body of another function. *Condition:* A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.
-- [SP503](docs/subset.md#sp503) `single-base-class`: The base classes listed in a class header: `class Child(Parent)`. *Condition:* A class lists at most one base class.
+- [SP503](docs/subset.md#sp503) `single-base-class`: The base classes listed in a class header: `class Child(Parent)`. *Condition (checked):* A class lists at most one base class.
 - [SP504](docs/subset.md#sp504) `class-decorator-allowlist`: Decorators on a class: `@dataclass`. *Condition:* The only permitted class decorator is `@dataclass` or `@dataclasses.dataclass`, written with or without keyword arguments, such as `@dataclass(frozen=True)`.
-- [SP603](docs/subset.md#sp603) `shallow-relative-imports`: Relative imports: `from . import sibling`, `from ..package import name`. *Condition:* A relative import has at most one leading dot. Imports from parent packages use the absolute module path.
-- [SP702](docs/subset.md#sp702) `typed-except-handlers`: An `except` clause: `except ValueError as error:`. *Condition:* Every `except` clause names the exception type or types it handles. A bare `except:` is not permitted.
+- [SP603](docs/subset.md#sp603) `shallow-relative-imports`: Relative imports: `from . import sibling`, `from ..package import name`. *Condition (checked):* A relative import has at most one leading dot. Imports from parent packages use the absolute module path.
+- [SP702](docs/subset.md#sp702) `typed-except-handlers`: An `except` clause: `except ValueError as error:`. *Condition (checked):* Every `except` clause names the exception type or types it handles. A bare `except:` is not permitted.
 <!-- END GENERATED SUBSET SUMMARY -->
 
 ## Checking code and teaching agents

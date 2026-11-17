@@ -1,6 +1,7 @@
 """Tests for the banned-construct checker."""
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -8,7 +9,7 @@ import sys
 import pytest
 
 import simplified_python.check as check_module
-from simplified_python.check import Rules, check_source, load_rules, main
+from simplified_python.check import CONDITIONS, Rules, check_source, load_rules, main
 from simplified_python.registry import DEFAULT_ROOT, load
 from benchmarks.legacy import check_source as check_source_legacy
 
@@ -18,6 +19,7 @@ BEFORE = EXAMPLES / "rewrite" / "before.py"
 REGISTRY = load()
 BANNED = [rule for rule in REGISTRY.rules if rule.status == "banned"]
 RESTRICTED = [rule for rule in REGISTRY.rules if rule.status == "restricted"]
+CHECKED = [rule for rule in RESTRICTED if rule.id in CONDITIONS]
 
 
 def write_rules(path):
@@ -147,7 +149,83 @@ def test_conforming_examples_are_clean(rules):
 
 
 def test_before_example_breaks_exactly_the_cited_rules(rules):
-    assert ids(check_source(BEFORE.read_text(), rules, str(BEFORE))) == {"SP118", "SP208", "SP304", "SP601"}
+    source = BEFORE.read_text()
+    comments = [line.split("#", 1)[1] for line in source.splitlines() if "#" in line]
+    cited = {rule_id for comment in comments for rule_id in re.findall(r"SP\d{3}", comment)}
+    checkable = {rule.id for rule in BANNED} | set(CONDITIONS)
+    assert ids(check_source(source, rules, str(BEFORE))) == cited & checkable
+    assert cited - checkable == {"SP115", "SP116"}
+
+
+def test_conditions_name_restricted_rules():
+    assert set(CONDITIONS) <= {rule.id for rule in RESTRICTED}
+
+
+@pytest.mark.parametrize("rule", CHECKED, ids=lambda rule: rule.id)
+def test_checked_condition_flags_violating_examples(rule, rules):
+    for code in rule.violating:
+        flagged = [f for f in check_source(code, rules) if f.rule_id == rule.id]
+        assert flagged and all(f.status == "violated" for f in flagged), code
+
+
+@pytest.mark.parametrize("rule", CHECKED, ids=lambda rule: rule.id)
+def test_checked_condition_passes_compliant_examples(rule, rules):
+    for code in rule.compliant:
+        assert rule.id not in ids(check_source(code, rules, restricted=True)), code
+
+
+@pytest.mark.parametrize(
+    ("code", "rule_id"),
+    [
+        ("ok = 0 < x < 10\n", "SP110"),
+        ("v = a if b else (c if d else e)\n", "SP114"),
+        ("v = (a if b else c) if d else e\n", "SP114"),
+        ("v = [x for row in rows for x in row]\n", "SP117"),
+        ("v = [x for x in xs if x if x > 1]\n", "SP117"),
+        ("v = [[y for y in x] for x in xs]\n", "SP117"),
+        ("v = sum(x for x in {y for y in ys})\n", "SP117"),
+        ("a = b = 0\n", "SP203"),
+        ("class C(A, B):\n    pass\n", "SP503"),
+        ("from ..pkg import name\n", "SP603"),
+        ("try:\n    pass\nexcept:\n    pass\n", "SP702"),
+    ],
+)
+def test_broken_condition_is_an_error(code, rule_id, rules):
+    (finding,) = [f for f in check_source(code, rules) if f.rule_id == rule_id]
+    assert finding.status == "violated" and "Condition not met:" in finding.message
+    assert f": error {rule_id} " in str(finding)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "ok = x < 10\n",
+        "v = a if b else c\n",
+        "v = [x for x in xs if x > 1]\n",
+        "v = {k: v for k, v in pairs}\n",
+        "x, y = point\n",
+        "class C(A):\n    pass\n",
+        "class C:\n    pass\n",
+        "from .pkg import name\n",
+        "try:\n    pass\nexcept (ValueError, TypeError):\n    pass\n",
+    ],
+)
+def test_met_condition_is_not_reported_even_for_review(code, rules):
+    checked = {f.rule_id for f in check_source(code, rules, restricted=True)} & set(CONDITIONS)
+    assert checked == set()
+
+
+def test_each_conditional_containing_another_is_flagged(rules):
+    findings = [f for f in check_source("v = a if b else c if d else e if f else g\n", rules) if f.rule_id == "SP114"]
+    assert [f.column for f in findings] == [5, 17]
+
+
+def test_cli_fails_on_broken_condition(rules_file, tmp_path, capsys):
+    path = tmp_path / "chain.py"
+    path.write_text("a = b = 0\n")
+    assert main([str(path), "--rules", str(rules_file)]) == 1
+    out = capsys.readouterr().out
+    assert "chain.py:1:1: error SP203" in out and "1 broken restricted condition(s)" in out
 
 
 def test_checker_runs_outside_the_repository(rules_file, tmp_path):
@@ -172,20 +250,25 @@ def test_checker_imports_only_the_standard_library():
     assert imported - {"__future__"} <= set(sys.stdlib_module_names)
 
 
+def unconditioned(findings):
+    """Findings for rules whose behaviour predates condition checks, for comparison with the legacy baseline."""
+    return [f for f in findings if f.rule_id not in CONDITIONS]
+
+
 def test_optimized_matches_legacy_on_all_examples(rules):
     for path in sorted(EXAMPLES.rglob("*.py")):
         if path != BEFORE:
             source = path.read_text(encoding="utf-8")
             legacy = check_source_legacy(source, rules, str(path))
             optimized = check_source(source, rules, str(path))
-            assert legacy == optimized, f"Mismatch on {path}"
+            assert unconditioned(legacy) == unconditioned(optimized), f"Mismatch on {path}"
 
 
 def test_optimized_matches_legacy_on_before_example(rules):
     source = BEFORE.read_text(encoding="utf-8")
     legacy = check_source_legacy(source, rules, str(BEFORE))
     optimized = check_source(source, rules, str(BEFORE))
-    assert legacy == optimized
+    assert unconditioned(legacy) == unconditioned(optimized)
 
 
 def test_optimized_matches_legacy_on_violating_examples(rules):
@@ -193,7 +276,7 @@ def test_optimized_matches_legacy_on_violating_examples(rules):
         for code in rule.violating:
             legacy = check_source_legacy(code, rules)
             optimized = check_source(code, rules)
-            assert legacy == optimized, f"Mismatch on {rule.id} violating example"
+            assert unconditioned(legacy) == unconditioned(optimized), f"Mismatch on {rule.id} violating example"
 
 
 def test_optimized_matches_legacy_on_compliant_examples(rules):
@@ -201,22 +284,22 @@ def test_optimized_matches_legacy_on_compliant_examples(rules):
         for code in rule.compliant:
             legacy = check_source_legacy(code, rules)
             optimized = check_source(code, rules)
-            assert legacy == optimized, f"Mismatch on {rule.id} compliant example"
+            assert unconditioned(legacy) == unconditioned(optimized), f"Mismatch on {rule.id} compliant example"
 
 
 def test_optimized_matches_legacy_restricted_mode(rules):
     code = "f = lambda x: x\n"
     legacy = check_source_legacy(code, rules, restricted=True)
     optimized = check_source(code, rules, restricted=True)
-    assert legacy == optimized
+    assert unconditioned(legacy) == unconditioned(optimized)
 
 
 def test_optimized_preserves_order_and_deduplication(rules):
     source = "from a import *\nx = 1\nfrom b import *\nfrom c import *\n"
     legacy = check_source_legacy(source, rules)
     optimized = check_source(source, rules)
-    assert legacy == optimized
-    assert [(f.line, f.column) for f in optimized] == [(f.line, f.column) for f in legacy]
+    assert unconditioned(legacy) == unconditioned(optimized)
+    assert [(f.line, f.column) for f in unconditioned(optimized)] == [(f.line, f.column) for f in unconditioned(legacy)]
 
 
 def test_optimized_handles_nodes_without_position(rules):
@@ -225,7 +308,7 @@ def test_optimized_handles_nodes_without_position(rules):
     source = "\n\nx = 1\n"
     legacy = check_source_legacy(source, custom_rules)
     optimized = check_source(source, custom_rules)
-    assert legacy == optimized
+    assert unconditioned(legacy) == unconditioned(optimized)
     assert len(optimized) == 1
     assert optimized[0].line == 3 and optimized[0].column == 1
 
@@ -234,4 +317,4 @@ def test_optimized_narrowed_anchor_matching(rules):
     source = "x = 1\ny: int = 2\n"
     legacy = check_source_legacy(source, rules)
     optimized = check_source(source, rules)
-    assert legacy == optimized
+    assert unconditioned(legacy) == unconditioned(optimized)

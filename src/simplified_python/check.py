@@ -1,12 +1,16 @@
-"""Report banned constructs from the simplified-Python subset in Python files.
+"""Report banned constructs, and broken restricted conditions, in Python files.
 
 Standard library only. It reads a ``rules.json`` snapshot generated from the
 registry, so this file runs on its own, for example from an agent skill:
 
     uv run --python 3.14 check.py [--restricted] FILE_OR_DIRECTORY...
 
-Exit status: 0 no banned construct, 1 banned construct found, 2 a file or the
-interpreter could not be checked. Restricted conditions are not checked.
+Restricted rules listed in ``CONDITIONS`` have their condition checked in code:
+an occurrence that breaks it is an error, and one that meets it is not reported.
+The remaining restricted rules are listed with ``--restricted`` for manual review.
+
+Exit status: 0 no violation, 1 a banned construct or broken condition found,
+2 a file or the interpreter could not be checked.
 """
 
 from __future__ import annotations
@@ -15,11 +19,12 @@ import argparse
 import ast
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 RULES_NAME = "rules.json"
+FAILING = ("banned", "violated")
 SNAPSHOT = Path(__file__).resolve().parents[2] / "skills" / "simplified-python" / RULES_NAME
 
 
@@ -63,7 +68,7 @@ class Finding:
     message: str
 
     def __str__(self) -> str:
-        label = "error" if self.status == "banned" else "review"
+        label = "error" if self.status in FAILING else "review"
         return f"{self.path}:{self.line}:{self.column}: {label} {self.rule_id} {self.slug}: {self.message}"
 
 
@@ -88,6 +93,36 @@ def find_constructs(tree: ast.AST, anchor: Anchor) -> Iterator[tuple[ast.AST, in
             yield node, line, column
 
 
+COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+def _contains(node: ast.AST, kinds: type | tuple[type, ...]) -> bool:
+    """Whether a node strictly inside ``node`` is one of ``kinds``."""
+    return any(isinstance(inner, kinds) for inner in ast.walk(node) if inner is not node)
+
+
+def _simple_comprehension(node: ast.AST) -> bool:
+    if not isinstance(node, COMPREHENSIONS):
+        return True  # the inner `comprehension` clause is judged with its enclosing comprehension
+    return len(node.generators) == 1 and len(node.generators[0].ifs) <= 1 and not _contains(node, COMPREHENSIONS)
+
+
+# Condition checks for restricted rules, by rule identifier. Each returns True when
+# the matched node meets the rule's condition. Rules not listed here stay review items.
+CONDITIONS: dict[str, Callable[[ast.AST], bool]] = {
+    "SP110": lambda node: len(node.ops) == 1,
+    "SP114": lambda node: not _contains(node, ast.IfExp),
+    "SP117": _simple_comprehension,
+    "SP203": lambda node: len(node.targets) == 1,
+    "SP503": lambda node: len(node.bases) <= 1,
+    "SP603": lambda node: node.level <= 1,
+    "SP702": lambda node: node.type is not None,
+}
+
+Condition = Callable[[ast.AST], bool] | None
+RuleIndex = dict[str, list[tuple[CheckRule, str, Condition]]]
+
+
 def load_rules(path: Path) -> Rules:
     data = json.loads(path.read_text(encoding="utf-8"))
     rules = tuple(
@@ -105,21 +140,26 @@ def load_rules(path: Path) -> Rules:
     return Rules(data["ruleset_version"], data["python_version"], rules)
 
 
-def _build_rule_index(rules: Rules, restricted: bool) -> dict[str, list[tuple[CheckRule, str]]]:
-    wanted = ("banned", "restricted") if restricted else ("banned",)
-    index: dict[str, list[tuple[CheckRule, str]]] = {}
+def _build_rule_index(rules: Rules, restricted: bool) -> RuleIndex:
+    """Index rules by node type. Checked restricted rules are always included;
+    unchecked ones only when ``restricted`` asks for review items."""
+    index: RuleIndex = {}
     for rule in rules.rules:
-        if rule.status not in wanted:
+        condition = CONDITIONS.get(rule.id) if rule.status == "restricted" else None
+        if rule.status == "banned":
+            text = f"{rule.construct} Instead: {rule.replacement}"
+        elif condition is not None:
+            text = f"{rule.construct} Condition not met: {rule.condition}"
+        elif rule.status == "restricted" and restricted:
+            text = f"{rule.construct} Condition: {rule.condition} (not checked; verify by hand)"
+        else:
             continue
-        text = f"{rule.construct} Instead: {rule.replacement}" if rule.status == "banned" else (
-            f"{rule.construct} Condition: {rule.condition} (not checked; verify by hand)"
-        )
         for node_type in rule.anchor.nodes:
-            index.setdefault(node_type, []).append((rule, text))
+            index.setdefault(node_type, []).append((rule, text, condition))
     return index
 
 
-def _check_tree(tree: ast.AST, path: str, rule_index: dict[str, list[tuple[CheckRule, str]]]) -> list[Finding]:
+def _check_tree(tree: ast.AST, path: str, rule_index: RuleIndex) -> list[Finding]:
     findings: set[Finding] = set()
     stack: list[tuple[ast.AST, int, int]] = [(tree, 1, 1)]
     while stack:
@@ -130,17 +170,19 @@ def _check_tree(tree: ast.AST, path: str, rule_index: dict[str, list[tuple[Check
         node_type = type(node).__name__
         if node_type not in rule_index:
             continue
-        for rule, text in rule_index[node_type]:
-            if not rule.anchor.narrowed:
+        for rule, text, condition in rule_index[node_type]:
+            if rule.anchor.narrowed:
+                attr = getattr(node, rule.anchor.attribute, None)
+                if not ((attr == rule.anchor.value) if rule.anchor.value is not None else bool(attr)):
+                    continue
+            if condition is None:
                 findings.add(Finding(path, line, column, rule.id, rule.slug, rule.status, text))
-                continue
-            attr = getattr(node, rule.anchor.attribute, None)
-            if (attr == rule.anchor.value) if rule.anchor.value is not None else bool(attr):
-                findings.add(Finding(path, line, column, rule.id, rule.slug, rule.status, text))
+            elif not condition(node):
+                findings.add(Finding(path, line, column, rule.id, rule.slug, "violated", text))
     return sorted(findings)
 
 
-def check_source(source: str, rules: Rules, path: str = "<string>", restricted: bool = False, rule_index: dict[str, list[tuple[CheckRule, str]]] | None = None) -> list[Finding]:
+def check_source(source: str, rules: Rules, path: str = "<string>", restricted: bool = False, rule_index: RuleIndex | None = None) -> list[Finding]:
     """Findings for ``source``, sorted by position. Raises ``SyntaxError`` if it does not parse."""
     tree = ast.parse(source, filename=path)
     if rule_index is None:
@@ -200,9 +242,17 @@ def main(argv: list[str] | None = None, interpreter: str | None = None) -> int:
         print(finding)
 
     banned = sum(f.status == "banned" for f in findings)
-    note = "restricted conditions are not checked" if not args.restricted else "restricted entries need manual review"
-    print(f"{banned} banned construct(s) in {len(files)} file(s); {note}. Rule set version {rules.ruleset_version}.")
-    return 2 if problems else 1 if banned else 0
+    violated = sum(f.status == "violated" for f in findings)
+    unchecked = sum(r.status == "restricted" and r.id not in CONDITIONS for r in rules.rules)
+    note = (
+        f"{unchecked} restricted condition(s) are not checked" if not args.restricted
+        else "review entries need manual review"
+    )
+    print(
+        f"{banned} banned construct(s) and {violated} broken restricted condition(s) in {len(files)} file(s); "
+        f"{note}. Rule set version {rules.ruleset_version}."
+    )
+    return 2 if problems else 1 if banned or violated else 0
 
 
 if __name__ == "__main__":

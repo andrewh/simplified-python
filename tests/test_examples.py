@@ -1,7 +1,7 @@
 """The programs in examples/ run, and conform to every banned rule in the registry.
 
-Restricted-rule conditions are prose until the checker exists, so they are
-reviewed by hand. Only banned constructs are checked mechanically here.
+Restricted-rule conditions that the checker verifies are covered by
+tests/test_check.py. The others are reviewed by hand.
 """
 
 import subprocess

@@ -3,10 +3,11 @@
 A thin adapter over ``simplified_python.check``: the rule logic and the rules
 snapshot are shared, so flake8 and ``check.py`` always report the same findings.
 
-Codes are the registry identifiers (``SP118`` and so on). Banned constructs are
-always reported. Pass ``--sp-restricted`` to also report restricted constructs
-for manual review. ``SP000`` means the interpreter does not match the rule set's
-Python version, so nothing was checked.
+Codes are the registry identifiers (``SP118`` and so on). Banned constructs and
+broken restricted conditions are always reported. Pass ``--sp-restricted`` to
+also report restricted constructs whose condition is not checked in code.
+``SP000`` means the interpreter does not match the rule set's Python version,
+so nothing was checked.
 """
 
 from __future__ import annotations
@@ -16,9 +17,8 @@ import sys
 from collections.abc import Iterator
 from importlib.metadata import version
 
-from simplified_python.check import CheckRule, Rules, _build_rule_index, _check_tree, default_rules_path, load_rules
-
-Index = dict[str, list[tuple[CheckRule, str]]]
+from simplified_python.check import RuleIndex as Index
+from simplified_python.check import Rules, _build_rule_index, _check_tree, default_rules_path, load_rules
 
 
 class SimplifiedPythonChecker:
