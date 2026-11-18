@@ -175,12 +175,15 @@ anchor = { nodes = ["FunctionDef"], attribute = "body" }
 status = "restricted"
 condition = """\
 A function body may contain a nested `def` only if the nested function does not \
-use any name that is a parameter or a local variable of the enclosing function."""
+use any name that is a parameter or a local variable of the enclosing function. \
+The one exception is a function defined in the enclosing function by a single \
+`def` and never rebound, so nested helpers may call each other and themselves."""
 rationale = """\
 A nested function that captures names from its enclosing function is a closure. \
 Its behaviour depends on state that is not in its parameter list, and that state \
 can change after the closure is created. A nested function that captures nothing \
-is a local helper. Its inputs are visible."""
+is a local helper. Its inputs are visible. A helper defined once by `def` and never \
+rebound cannot change, so calling it does not depend on hidden state."""
 principles = ["P1", "P3"]
 compliant = [
     '''
@@ -189,6 +192,18 @@ def total_size(paths):
         return path.stat().st_size
 
     return sum(size_of(path) for path in paths)
+''',
+    '''
+def count_leaves(tree):
+    def is_leaf(node):
+        return not node.children
+
+    def count(node):
+        if is_leaf(node):
+            return 1
+        return sum(count(child) for child in node.children)
+
+    return count(tree)
 ''',
 ]
 violating = [

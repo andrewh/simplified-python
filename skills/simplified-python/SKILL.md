@@ -5,7 +5,7 @@ description: Write, rewrite, or review Python in the "simplified Python" subset,
 
 # Simplified Python
 
-A conforming file is ordinary Python 3.14 with unchanged behaviour. The subset only removes or narrows constructs, so that a human can review AI-written code quickly. Rule-set version 1.
+A conforming file is ordinary Python 3.14 with unchanged behaviour. The subset only removes or narrows constructs, so that a human can review AI-written code quickly. Rule-set version 2.
 
 > [!WARNING]
 > **Experimental pre-release.** The subset is still being defined and is not ready for general use.
@@ -60,14 +60,14 @@ These may appear only when the condition holds.
 
 - [SP110](reference.md#sp110) `single-comparison`: A comparison: `a < b`, `x == y`, `key in table`. *Condition (checked):* A comparison uses exactly one comparison operator. Chained comparisons such as `a < b < c` are not permitted.
 - [SP114](reference.md#sp114) `flat-conditional-expression`: A conditional expression: `a if condition else b`. *Condition (checked):* The test and both branches of a conditional expression do not contain another conditional expression.
-- [SP115](reference.md#sp115) `starred-unpacking`: Starred expressions: `f(*args)`, `[*head, *tail]`, `first, *rest = items`. *Condition:* A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.
+- [SP115](reference.md#sp115) `starred-unpacking`: Starred expressions: `f(*args)`, `[*head, *tail]`, `first, *rest = items`. *Condition (checked):* A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.
 - [SP116](reference.md#sp116) `lambda-as-argument`: Anonymous functions: `lambda item: item.size`. *Condition (checked):* A lambda is permitted only as a direct argument of a call, such as `sorted(items, key=lambda item: item.size)`.
 - [SP117](reference.md#sp117) `simple-comprehensions`: List, set, and dict comprehensions, generator expressions, and their `for` / `if` clauses. *Condition (checked):* A comprehension has exactly one `for` clause and at most one `if` clause, and contains no other comprehension.
 - [SP203](reference.md#sp203) `single-target-assignment`: Assignment: `total = 0`, `x, y = point`. *Condition (checked):* An assignment has exactly one target, before a single `=`. Chained assignment such as `a = b = 0` is not permitted. Unpacking into one tuple target such as `x, y = point` is permitted.
 - [SP405](reference.md#sp405) `function-decorator-allowlist`: Decorators on a function or method: `@property`. *Condition:* Each decorator on a function is one of: `@property`, `@<name>.setter` or `@<name>.deleter` for a property defined in the same class, `@staticmethod`, `@classmethod`, or `@override` (imported from `typing`, or written as `@typing.override`). No other decorator is permitted.
 - [SP406](reference.md#sp406) `forwarding-varargs`: A variadic positional parameter: `def f(*args)`. *Condition (checked):* A function may declare `*args` only if its body uses `args` only as `*args` in one call, passing the values on unchanged.
 - [SP407](reference.md#sp407) `forwarding-kwargs`: A variadic keyword parameter: `def f(**kwargs)`. *Condition (checked):* A function may declare `**kwargs` only if its body uses `kwargs` only as `**kwargs` in one call, passing the values on unchanged.
-- [SP408](reference.md#sp408) `nested-functions-without-closures`: A function defined inside the body of another function. *Condition:* A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.
+- [SP408](reference.md#sp408) `nested-functions-without-closures`: A function defined inside the body of another function. *Condition (checked):* A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function. The one exception is a function defined in the enclosing function by a single `def` and never rebound, so nested helpers may call each other and themselves.
 - [SP503](reference.md#sp503) `single-base-class`: The base classes listed in a class header: `class Child(Parent)`. *Condition (checked):* A class lists at most one base class.
 - [SP504](reference.md#sp504) `class-decorator-allowlist`: Decorators on a class: `@dataclass`. *Condition:* The only permitted class decorator is `@dataclass` or `@dataclasses.dataclass`, written with or without keyword arguments, such as `@dataclass(frozen=True)`.
 - [SP603](reference.md#sp603) `shallow-relative-imports`: Relative imports: `from . import sibling`, `from ..package import name`. *Condition (checked):* A relative import has at most one leading dot. Imports from parent packages use the absolute module path.

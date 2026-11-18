@@ -10,7 +10,7 @@
 > Rule identifiers, statuses, and the registry format may change without notice between rule-set versions,
 > and the checker enforces the banned rules and some restricted conditions; the other conditions still rely on human review.
 
-Rule-set version **1**, defining a subset of the **Python 3.14** grammar.
+Rule-set version **2**, defining a subset of the **Python 3.14** grammar.
 
 Every program that conforms to the subset is an ordinary Python program with unchanged behaviour. The subset only removes or narrows constructs. Each construct has one of three statuses:
 
@@ -397,7 +397,7 @@ label = "high" if level > 2 else "mid" if level > 1 else "low"
 
 **Condition:** A starred expression may unpack values into a call or a list, tuple, or set display. It must not be an assignment target or a `for` loop target.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
 **Rationale:** Unpacking into a call or display shows where the values go. A starred target splits a sequence by position, and the reader must count the other targets to know what each name holds. Indexing or slicing says it directly.
 
@@ -1006,11 +1006,11 @@ def connect(**kwargs):
 
 **Construct:** A function defined inside the body of another function.
 
-**Condition:** A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function.
+**Condition:** A function body may contain a nested `def` only if the nested function does not use any name that is a parameter or a local variable of the enclosing function. The one exception is a function defined in the enclosing function by a single `def` and never rebound, so nested helpers may call each other and themselves.
 
-**Checked:** by hand; the checker does not verify it
+**Checked:** by the checker
 
-**Rationale:** A nested function that captures names from its enclosing function is a closure. Its behaviour depends on state that is not in its parameter list, and that state can change after the closure is created. A nested function that captures nothing is a local helper. Its inputs are visible.
+**Rationale:** A nested function that captures names from its enclosing function is a closure. Its behaviour depends on state that is not in its parameter list, and that state can change after the closure is created. A nested function that captures nothing is a local helper. Its inputs are visible. A helper defined once by `def` and never rebound cannot change, so calling it does not depend on hidden state.
 
 **Principles:** [P1 · local-reasoning](#p1), [P3 · no-action-at-a-distance](#p3)
 
@@ -1022,6 +1022,21 @@ def total_size(paths):
         return path.stat().st_size
 
     return sum(size_of(path) for path in paths)
+```
+
+Compliant:
+
+```python
+def count_leaves(tree):
+    def is_leaf(node):
+        return not node.children
+
+    def count(node):
+        if is_leaf(node):
+            return 1
+        return sum(count(child) for child in node.children)
+
+    return count(tree)
 ```
 
 Violating:

@@ -88,9 +88,9 @@ def test_nodes_without_position_inherit_the_enclosing_one(rules):
 
 
 def test_restricted_are_hidden_by_default_and_listed_on_request(rules):
-    code = "first, *rest = items\n"
+    code = "@cache\ndef f():\n    pass\n"
     assert check_source(code, rules) == []
-    finding = next(f for f in check_source(code, rules, restricted=True) if f.slug == "starred-unpacking")
+    finding = next(f for f in check_source(code, rules, restricted=True) if f.slug == "function-decorator-allowlist")
     assert finding.status == "restricted" and "not checked" in finding.message
 
 
@@ -113,7 +113,7 @@ def test_cli_exit_codes(rules_file, tmp_path, capsys):
 
 def test_cli_restricted_does_not_change_exit_status(rules_file, tmp_path, capsys):
     path = tmp_path / "lam.py"
-    path.write_text("first, *rest = items\n")
+    path.write_text("@cache\ndef f():\n    pass\n")
     assert main([str(path), "--restricted", "--rules", str(rules_file)]) == 0
     assert "review SP" in capsys.readouterr().out
     assert main([str(path), "--rules", str(rules_file)]) == 0
@@ -154,7 +154,7 @@ def test_before_example_breaks_exactly_the_cited_rules(rules):
     cited = {rule_id for comment in comments for rule_id in re.findall(r"SP\d{3}", comment)}
     checkable = {rule.id for rule in BANNED} | set(CONDITIONS)
     assert ids(check_source(source, rules, str(BEFORE))) == cited & checkable
-    assert cited - checkable == {"SP115"}
+    assert cited <= checkable
 
 
 def test_conditions_name_restricted_rules():
@@ -184,7 +184,27 @@ def test_checked_condition_passes_compliant_examples(rule, rules):
         ("v = [x for x in xs if x if x > 1]\n", "SP117"),
         ("v = [[y for y in x] for x in xs]\n", "SP117"),
         ("v = sum(x for x in {y for y in ys})\n", "SP117"),
+        ("first, *rest = items\n", "SP115"),
+        ("for first, *rest in rows:\n    pass\n", "SP115"),
+        ("[*rest] = items\n", "SP115"),
+        ("with open(p) as (first, *rest):\n    pass\n", "SP115"),
+        ("v = [x for x, *_ in rows]\n", "SP115"),
+        ("def f(*args: *Ts):\n    return g(*args)\n", "SP115"),
         ("f = lambda x: x\n", "SP116"),
+        ("def f(x):\n    def g():\n        return x\n    return g\n", "SP408"),
+        ("def f():\n    n = 1\n    def g():\n        return n\n    return g\n", "SP408"),
+        ("def f():\n    import os\n    def g():\n        return os.sep\n    return g\n", "SP408"),
+        ("def f(x):\n    def g():\n        def h():\n            return x\n        return h\n    return g\n", "SP408"),
+        ("def f(x):\n    class C:\n        def m(self):\n            return x\n    return C\n", "SP408"),
+        ("def f():\n    def a():\n        return 1\n    a = None\n    def b():\n        return a()\n    return b\n", "SP408"),
+        ("def outer(x):\n    def build():\n        class C:\n            x = 0\n            def m(self):\n                return x\n        return C\n    return build\n", "SP408"),
+        ("def outer(items):\n    callbacks = []\n    for i in items:\n        def helper(value=i):\n            return value\n        def callback():\n            return helper()\n        callbacks.append(callback)\n    return callbacks\n", "SP408"),
+        ("def outer():\n    while ready():\n        def helper():\n            return 1\n    def use():\n        return helper()\n    return use\n", "SP408"),
+        ("def f(*args):\n    class C:\n        args = 1\n        def m(self):\n            return args\n    return g(*args)\n", "SP406"),
+        ("def f():\n    def a():\n        return 1\n    def a():\n        return 2\n    def b():\n        return a()\n    return b\n", "SP408"),
+        ("def f():\n    for a in xs:\n        pass\n    def b():\n        return a()\n    return b\n", "SP408"),
+        ("def f(a):\n    def b():\n        return a()\n    return b\n", "SP408"),
+        ("def f(x):\n    def a():\n        return x\n    def b():\n        return a()\n    return b\n", "SP408"),
         ("v = (lambda x: x)(1)\n", "SP116"),
         ("v = [lambda: 1]\n", "SP116"),
         ("def f(*args):\n    return args[0]\n", "SP406"),
@@ -234,6 +254,12 @@ def test_broken_condition_is_an_error(code, rule_id, rules):
         "from .pkg import name\n",
         "try:\n    pass\nexcept (ValueError, TypeError):\n    pass\n",
         "v = sorted(xs, key=lambda x: x.size)\n",
+        "v = [*head, *tail]\n",
+        "v = {*a, *b}\n",
+        "v = (*a, b)\n",
+        "v = g(1, *xs)\n",
+        "v = table[*index]\n",
+        "def f():\n    return *a, b\n",
         "v = map(lambda x: x + 1, xs)\n",
         "def f(message, *args):\n    return log(message, *args)\n",
         "def f(*args):\n    return g(1, *args, key=2)\n",
@@ -247,7 +273,20 @@ def test_broken_condition_is_an_error(code, rule_id, rules):
         "def f(*args):\n    v = [args for args in xs]\n    return g(*args)\n",
         "def f(*args):\n    class C:\n        args = 1\n    return g(*args)\n",
         "def f(*args):\n    v = sorted(xs, key=lambda args: args)\n    return g(*args)\n",
-        "def f(*args):\n    def g():\n        return h(*args)\n    return g\n",
+        "def total_size(paths):\n    def size_of(path):\n        return len(path)\n\n    return sum(size_of(path) for path in paths)\n",
+        "def f(x):\n    return x\n",
+        "def f(x):\n    def g(x):\n        return x\n    return g(1)\n",
+        "def f(x):\n    def g():\n        x = 2\n        return x\n    return g()\n",
+        "def f(x):\n    def g(y=x):\n        return y\n    return g\n",
+        "def f():\n    def a():\n        return 1\n    def b():\n        return a()\n    return b\n",
+        "def f():\n    def g(n):\n        return g(n - 1)\n    return g\n",
+        "def outer(T):\n    def inner[T]():\n        return T\n    return inner\n",
+        "def outer[T]():\n    def inner():\n        return T\n    return inner\n",
+        "def outer(x):\n    def build():\n        class C:\n            x = 0\n        return C\n    return build\n",
+        "def outer():\n    if ready():\n        def helper():\n            return 1\n    def use():\n        return helper()\n    return use\n",
+        "def f():\n    def b():\n        return a()\n    def a():\n        return 1\n    return b\n",
+        "def f():\n    def a():\n        def deep():\n            return b()\n        return deep\n    def b():\n        return a()\n    return b\n",
+        "class C:\n    def m(self):\n        def helper(v):\n            return v\n        return helper(self)\n",
     ],
 )
 def test_met_condition_is_not_reported_even_for_review(code, rules):
@@ -266,6 +305,13 @@ def test_met_condition_is_not_reported_even_for_review(code, rules):
 def test_one_error_per_nested_conditional_chain(code, columns, rules):
     findings = [f for f in check_source(code, rules) if f.rule_id == "SP114"]
     assert [f.column for f in findings] == columns
+
+
+def test_forwarding_from_a_closure_is_judged_by_sp408(rules):
+    code = "def f(*args):\n    def g():\n        return h(*args)\n    return g\n"
+    findings = {f.rule_id: f for f in check_source(code, rules)}
+    assert "SP406" not in findings
+    assert (findings["SP408"].line, findings["SP408"].status) == (2, "violated")
 
 
 def test_cli_fails_on_broken_condition(rules_file, tmp_path, capsys):
@@ -336,7 +382,7 @@ def test_optimized_matches_legacy_on_compliant_examples(rules):
 
 
 def test_optimized_matches_legacy_restricted_mode(rules):
-    code = "first, *rest = items\n"
+    code = "@cache\ndef f():\n    pass\n"
     legacy = check_source_legacy(code, rules, restricted=True)
     optimized = check_source(code, rules, restricted=True)
     assert unconditioned(legacy) == unconditioned(optimized)
